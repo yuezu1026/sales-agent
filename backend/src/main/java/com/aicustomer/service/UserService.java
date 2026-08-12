@@ -317,6 +317,72 @@ public class UserService {
     }
 
     /**
+     * 当前用户完整资料（含公司名称，从租户名填充）：me 接口使用
+     */
+    public User getProfile(String username) {
+        User user = findByUsername(username);
+        if (user.getTenantId() != null) {
+            tenantRepository.findById(user.getTenantId())
+                    .ifPresent(t -> user.setCompanyName(t.getName()));
+        }
+        return user;
+    }
+
+    /**
+     * 修改本人资料：显示名称/邮箱/微信/电话/公司名称
+     * 仅能改自己的资料（username 由 token 身份决定）；公司名称更新租户名（租户级），
+     * 且公司名称只能由本租户的管理员修改（普通用户/平台管理员提交则拒绝）
+     */
+    @Transactional
+    public void updateProfile(String username, String displayName, String email, String wechat,
+                              String phone, String companyName) {
+        User user = findByUsername(username);
+        String dn = StringUtils.hasText(displayName) ? displayName.trim() : null;
+        if (!StringUtils.hasText(dn)) {
+            throw BizException.badRequest("显示名称不能为空");
+        }
+        if (dn.length() > 64) {
+            throw BizException.badRequest("显示名称不能超过 64 个字符");
+        }
+        String em = StringUtils.hasText(email) ? email.trim() : null;
+        if (em != null && em.length() > 128) {
+            throw BizException.badRequest("邮箱地址过长");
+        }
+        if (em != null && !em.matches("^[^@\\s]+@[^@\\s]+$")) {
+            throw BizException.badRequest("邮箱地址格式不正确");
+        }
+        String wc = StringUtils.hasText(wechat) ? wechat.trim() : null;
+        if (wc != null && wc.length() > 64) {
+            throw BizException.badRequest("微信号过长");
+        }
+        String ph = StringUtils.hasText(phone) ? phone.trim() : null;
+        if (ph != null && ph.length() > 32) {
+            throw BizException.badRequest("电话号码过长");
+        }
+        user.setDisplayName(dn);
+        user.setEmail(em);
+        user.setWechat(wc);
+        user.setPhone(ph);
+        userRepository.save(user);
+        // 公司名称（租户级）：仅租户管理员可修改；普通用户/平台管理员提交则拒绝
+        boolean wantCompany = StringUtils.hasText(companyName);
+        if (wantCompany && !user.isTenantAdmin()) {
+            throw BizException.badRequest("仅租户管理员可修改公司名称");
+        }
+        if (wantCompany) {
+            String cn = companyName.trim();
+            if (cn.length() > 128) {
+                throw BizException.badRequest("公司名称不能超过 128 个字符");
+            }
+            String finalCn = cn;
+            tenantRepository.findById(user.getTenantId()).ifPresent(t -> {
+                t.setName(finalCn);
+                tenantRepository.save(t);
+            });
+        }
+    }
+
+    /**
      * 修改密码：校验旧密码 → 更新为 BCrypt 新哈希
      */
     public void changePassword(String username, String oldPassword, String newPassword) {

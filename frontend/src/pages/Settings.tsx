@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, clearToken, getRole } from "../api/client";
+import { api, clearToken, getRole, isSystemAdmin } from "../api/client";
 import { confirmDialog } from "../utils/dialog";
 import { Nav } from "./Nav";
 
@@ -21,9 +21,25 @@ interface UnsubscribeItem {
 export default function Settings() {
   const navigate = useNavigate();
   const isAdmin = getRole() === "admin";
+  // 平台管理员（超级管理员）无租户，不显示公司名称字段
+  const sysAdmin = isSystemAdmin();
+  // 租户管理员（role=admin 且属于某租户）：公司名称仅其可修改
+  const tenantAdmin = isAdmin && !sysAdmin;
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // 个人信息：账号（只读）+ 显示名称/邮箱/微信/电话/公司名称
+  const [profile, setProfile] = useState({
+    username: "",
+    displayName: "",
+    email: "",
+    wechat: "",
+    phone: "",
+    companyName: "",
+  });
+  const [profileMsg, setProfileMsg] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const [unsubList, setUnsubList] = useState<UnsubscribeItem[]>([]);
   const [unsubMsg, setUnsubMsg] = useState<string | null>(null);
@@ -43,6 +59,58 @@ export default function Settings() {
     }
   };
 
+  /** 加载本人资料（/auth/me），回填个人信息表单 */
+  const loadProfile = async () => {
+    try {
+      const data = await api<{
+        username: string;
+        displayName: string | null;
+        email: string | null;
+        wechat: string | null;
+        phone: string | null;
+        companyName: string | null;
+      }>("/auth/me");
+      setProfile({
+        username: data.username ?? "",
+        displayName: data.displayName ?? "",
+        email: data.email ?? "",
+        wechat: data.wechat ?? "",
+        phone: data.phone ?? "",
+        companyName: data.companyName ?? "",
+      });
+    } catch {
+      // me 失败时保持空表单，不打扰（401 会由 api() 统一跳登录）
+    }
+  };
+
+  /** 保存本人资料 */
+  const saveProfile = async () => {
+    if (!profile.displayName.trim()) {
+      setProfileMsg("显示名称不能为空");
+      return;
+    }
+    setProfileSaving(true);
+    setProfileMsg(null);
+    try {
+      await api("/auth/profile", {
+        method: "PUT",
+        body: JSON.stringify({
+          displayName: profile.displayName.trim(),
+          email: profile.email.trim(),
+          wechat: profile.wechat.trim(),
+          phone: profile.phone.trim(),
+          // 公司名称仅租户管理员可修改，普通用户/平台管理员不提交
+          companyName: tenantAdmin ? profile.companyName.trim() : "",
+        }),
+      });
+      setProfileMsg("个人信息保存成功");
+    } catch (e) {
+      setProfileMsg((e as Error).message);
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   const loadUnsub = async () => {
     setUnsubLoading(true);
     try {
@@ -57,6 +125,7 @@ export default function Settings() {
 
   useEffect(() => {
     load();
+    loadProfile();
     if (isAdmin) loadUnsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -127,6 +196,87 @@ export default function Settings() {
       />
       <div className="container">
         <h2>{isAdmin ? "系统设置" : "个人设置"}</h2>
+
+        {/* 个人信息：所有角色可见（账号只读，资料可编辑） */}
+        <div className="card">
+          <h3>个人信息</h3>
+          <div className="form-item">
+            <label>个人账号</label>
+            <input value={profile.username} disabled />
+          </div>
+          <div className="form-item">
+            <label>显示名称</label>
+            <input
+              value={profile.displayName}
+              onChange={(e) =>
+                setProfile({ ...profile, displayName: e.target.value })
+              }
+            />
+          </div>
+          <div className="form-item">
+            <label>邮箱地址</label>
+            <input
+              type="email"
+              placeholder="用于接收系统通知"
+              value={profile.email}
+              onChange={(e) =>
+                setProfile({ ...profile, email: e.target.value })
+              }
+            />
+          </div>
+          <div className="form-item">
+            <label>微信</label>
+            <input
+              placeholder="选填"
+              value={profile.wechat}
+              onChange={(e) =>
+                setProfile({ ...profile, wechat: e.target.value })
+              }
+            />
+          </div>
+          <div className="form-item">
+            <label>电话号码</label>
+            <input
+              placeholder="选填"
+              value={profile.phone}
+              onChange={(e) =>
+                setProfile({ ...profile, phone: e.target.value })
+              }
+            />
+          </div>
+          {/* 公司名称：租户管理员可编辑；普通用户只读显示；平台管理员无租户不显示 */}
+          {!sysAdmin && (
+            <div className="form-item">
+              <label>公司名称</label>
+              <input
+                value={profile.companyName}
+                disabled={!tenantAdmin}
+                readOnly={!tenantAdmin}
+                title={tenantAdmin ? "" : "公司名称仅租户管理员可修改"}
+                onChange={(e) =>
+                  setProfile({ ...profile, companyName: e.target.value })
+                }
+              />
+            </div>
+          )}
+          <button
+            className="btn"
+            disabled={profileSaving}
+            onClick={saveProfile}
+          >
+            {profileSaving ? "保存中..." : "保存个人信息"}
+          </button>
+          {profileMsg && (
+            <div
+              className={`msg ${
+                profileMsg.includes("成功") ? "success" : "error"
+              }`}
+            >
+              {profileMsg}
+            </div>
+          )}
+        </div>
+
         {isAdmin && (
           <div className="card">
             {/* AI 模型配置组（ai.*） */}

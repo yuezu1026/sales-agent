@@ -31,6 +31,22 @@ public class User {
     @Column(name = "display_name", length = 64)
     private String displayName;
 
+    /** 个人资料：邮箱（可空） */
+    @Column(length = 128)
+    private String email;
+
+    /** 个人资料：微信（可空） */
+    @Column(length = 64)
+    private String wechat;
+
+    /** 个人资料：电话号码（可空） */
+    @Column(length = 32)
+    private String phone;
+
+    /** 公司名称（租户名，非持久化，me 接口填充；平台管理员为 null） */
+    @Transient
+    private String companyName;
+
     /** 所属租户 id；NULL = 平台级账号（如初始平台管理员） */
     @Column(name = "tenant_id")
     private Long tenantId;
@@ -77,6 +93,38 @@ public class User {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getWechat() {
+        return wechat;
+    }
+
+    public void setWechat(String wechat) {
+        this.wechat = wechat;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
+    public String getCompanyName() {
+        return companyName;
+    }
+
+    public void setCompanyName(String companyName) {
+        this.companyName = companyName;
     }
 
     public Long getTenantId() {

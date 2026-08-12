@@ -283,7 +283,19 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResponse<User> me(HttpServletRequest request) {
         String username = (String) request.getAttribute(ATTR_USERNAME);
-        return ApiResponse.ok(userService.findByUsername(username));
+        return ApiResponse.ok(userService.getProfile(username));
+    }
+
+    /**
+     * 修改本人资料：显示名称/邮箱/微信/电话/公司名称（基于 token 身份，无需管理员权限）
+     */
+    @PutMapping("/profile")
+    public ApiResponse<Void> updateProfile(@RequestBody ProfileUpdateRequest request,
+                                           HttpServletRequest httpRequest) {
+        String username = (String) httpRequest.getAttribute(ATTR_USERNAME);
+        userService.updateProfile(username, request.displayName(), request.email(),
+                request.wechat(), request.phone(), request.companyName());
+        return ApiResponse.ok(null);
     }
 
     @PostMapping("/change-password")
@@ -309,5 +321,14 @@ public class AuthController {
     public record ChangePasswordRequest(
             @NotBlank(message = "原密码不能为空") String oldPassword,
             @NotBlank(message = "新密码不能为空") String newPassword) {
+    }
+
+    /** 修改本人资料（字段均可空，仅修改有值的字段；校验在 UserService 内） */
+    public record ProfileUpdateRequest(
+            String displayName,
+            String email,
+            String wechat,
+            String phone,
+            String companyName) {
     }
 }
