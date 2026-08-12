@@ -34,3 +34,7 @@ Thumbs.db
 # ===== M7.13 map generation intermediate artifacts =====
 scripts/geo_cache/
 scripts/china_100000_full.json
+
+# ===== 收款码原图（根目录副本不入 Git，仅保留 frontend/public/ 部署副本） =====
+/alipay.jpg
+/wechat-pay.jpg
