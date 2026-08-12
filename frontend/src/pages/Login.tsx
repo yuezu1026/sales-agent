@@ -114,10 +114,10 @@ export default function Login() {
         <div className="auth-header">
           <img
             src={`${import.meta.env.BASE_URL}logo.svg`}
-            alt="AI智能获客助手"
+            alt="拾客 Shike"
             className="auth-logo"
           />
-          <h2 className="auth-title">AI智能获客助手 · 登录</h2>
+          <h2 className="auth-title">拾客 Shike · 登录</h2>
         </div>
         <div className="form-item">
           <label>用户名</label>

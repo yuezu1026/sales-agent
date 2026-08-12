@@ -218,8 +218,8 @@ export default function Help() {
           <h3 style={{ marginTop: 0 }}>ℹ️ 关于</h3>
           <div className="help-about">
             <div>
-              <b>AI 智能获客助手</b>（AI Sales Agent）—— 端到端 AI 销售智能体，
-              实现「发现 → 触达 → 转化」的自动化获客闭环。
+              <b>拾客 Shike</b>（AI 智能获客助手 · AI Sales Agent）—— 端到端 AI
+              销售智能体，实现「发现 → 触达 → 转化」的自动化获客闭环。
             </div>
             <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
               <li>部署方式：本地部署（Docker Compose 一键启动）</li>

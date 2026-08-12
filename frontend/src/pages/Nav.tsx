@@ -116,7 +116,7 @@ export function Nav({ current, onLogout }: NavProps) {
         <a href="/" className="nav-brand" title="返回首页">
           <img
             src={`${import.meta.env.BASE_URL}logo.svg`}
-            alt="AI智能获客助手"
+            alt="拾客 Shike"
             className="nav-logo"
           />
         </a>

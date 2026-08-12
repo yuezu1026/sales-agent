@@ -49,7 +49,7 @@ export default function Unsubscribe() {
         <div className="auth-header">
           <img
             src={`${import.meta.env.BASE_URL}logo.svg`}
-            alt="AI智能获客助手"
+            alt="拾客 Shike"
             className="auth-logo"
           />
           <h2 className="auth-title">邮件退订</h2>
