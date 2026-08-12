@@ -30,4 +30,23 @@ public interface LoginLogRepository extends JpaRepository<LoginLog, Long> {
     /** M7.13：按地理归属分组计数（geo 非空），返回 [geo, count] 对 */
     @Query("select log.geo, count(log) from LoginLog log where log.geo is not null group by log.geo")
     List<Object[]> countByGeo();
+
+    // ---- M8.1 租户级统计：租户管理员/普通用户只看自己租户 ----
+
+    /** 某租户的登录总次数 */
+    long countByTenantId(Long tenantId);
+
+    /** 某租户某时间点之后（含）的登录次数 */
+    long countByTenantIdAndLoginAtGreaterThanEqual(Long tenantId, LocalDateTime after);
+
+    /** 某租户某时间点之后（含）的全部登录记录（趋势曲线聚合） */
+    List<LoginLog> findByTenantIdAndLoginAtGreaterThanEqual(Long tenantId, LocalDateTime after);
+
+    /** 某租户某时间点之后（含）登录过的不同用户数 */
+    @Query("select count(distinct log.username) from LoginLog log where log.tenantId = :tid and log.loginAt >= :after")
+    long countDistinctUsernameAfter(@Param("tid") Long tenantId, @Param("after") LocalDateTime after);
+
+    /** 某租户按地理归属分组计数（geo 非空） */
+    @Query("select log.geo, count(log) from LoginLog log where log.tenantId = :tid and log.geo is not null group by log.geo")
+    List<Object[]> countByGeo(@Param("tid") Long tenantId);
 }

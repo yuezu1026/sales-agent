@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, clearToken } from "../api/client";
+import { api, clearToken, isSystemAdmin } from "../api/client";
 import TrendChart from "../components/TrendChart";
 import ChinaMap, { GeoPoint } from "../components/ChinaMap";
 import { Nav } from "./Nav";
@@ -63,6 +63,9 @@ const LEAD_STATUS_LABEL: Record<string, string> = {
 /** 工作台：客户统计 + AI 个性化邮件生成（潜客挖掘在 M2 里程碑） */
 export default function Dashboard() {
   const navigate = useNavigate();
+  // 系统管理员（平台级）：工作台只展示平台级统计（登录统计/地理分布），
+  // 不请求租户级数据（客户/邮件/AI 用量），避免无谓 400
+  const sysAdmin = isSystemAdmin();
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [leadStats, setLeadStats] = useState<LeadStats | null>(null);
   const [emailStats, setEmailStats] = useState<EmailStats | null>(null);
@@ -74,15 +77,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     api("/auth/me").catch(() => navigate("/login"));
-    api<UsageSummary>("/ai/usage")
-      .then(setUsage)
-      .catch(() => setUsage(null));
-    api<LeadStats>("/leads/stats")
-      .then(setLeadStats)
-      .catch(() => setLeadStats(null));
-    api<EmailStats>("/email-stats")
-      .then(setEmailStats)
-      .catch(() => setEmailStats(null));
+    if (!sysAdmin) {
+      api<UsageSummary>("/ai/usage")
+        .then(setUsage)
+        .catch(() => setUsage(null));
+      api<LeadStats>("/leads/stats")
+        .then(setLeadStats)
+        .catch(() => setLeadStats(null));
+      api<EmailStats>("/email-stats")
+        .then(setEmailStats)
+        .catch(() => setEmailStats(null));
+    }
     api<LoginStats>("/auth/login-stats", { skipAuthRedirect: true })
       .then(setLoginStats)
       .catch(() => setLoginStats(null));
@@ -90,7 +95,7 @@ export default function Dashboard() {
     api<LoginGeo>("/auth/login-geo")
       .then(setLoginGeo)
       .catch(() => setLoginGeo(null));
-  }, [navigate]);
+  }, [navigate, sysAdmin]);
 
   // M7.10：登录次数趋势曲线（随日/周/月/年切换重新请求）
   useEffect(() => {
@@ -122,7 +127,7 @@ export default function Dashboard() {
           <h2 style={{ margin: 0 }}>工作台</h2>
         </div>
 
-        {leadStats && (
+        {!sysAdmin && leadStats && (
           <div className="card" style={{ marginBottom: 20 }}>
             <div
               style={{
@@ -156,7 +161,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {emailStats && (
+        {!sysAdmin && emailStats && (
           <div className="card" style={{ marginTop: 20 }}>
             <h3>邮件效果</h3>
             <div className="stat-grid-5" style={{ gap: 12, marginTop: 16 }}>
@@ -192,7 +197,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {usage && (
+        {!sysAdmin && usage && (
           <div className="card" style={{ marginTop: 20 }}>
             <h3>AI 用量统计</h3>
             <div className="stat-grid-3" style={{ gap: 12 }}>

@@ -213,8 +213,8 @@ public class UserService {
 
     /**
      * 创建用户（管理员操作）：
-     * - 系统管理员（平台级）→ 可创建系统管理员（role=admin，无租户）；也可创建普通用户（role=operator，无租户）
-     * - 普通管理员（租户级）→ 只能给本租户创建普通用户（role=operator），禁止创建管理员防提权
+     * - 超级管理员（平台级）→ 只能创建超级管理员（role=admin，无租户），不能创建普通管理员/普通用户
+     * - 普通管理员（租户级）→ 只能创建本租户的普通管理员（role=admin）或普通用户（role=operator）
      */
     public User createUser(String username, String password, String displayName, String role, String operatorName) {
         if (username == null || username.isBlank()) {
@@ -236,16 +236,22 @@ public class UserService {
         User operator = findByUsername(operatorName);
         boolean sysAdmin = operator.isSystemAdmin();
 
-        // 目标角色：默认普通用户；仅系统管理员可指定创建管理员（平台级）
-        String targetRole = User.ROLE_OPERATOR;
-        if (StringUtils.hasText(role) && User.ROLE_ADMIN.equals(role.trim())) {
-            if (!sysAdmin) {
-                throw BizException.forbidden("无权限，普通管理员只能创建普通用户");
+        // 目标角色与归属（M8.1 角色创建权限矩阵）：
+        // 超级管理员 → 只能创建超级管理员（平台级，无租户）
+        // 租户管理员 → 创建本租户普通管理员/普通用户（归属当前租户）
+        String targetRole;
+        Long targetTenantId;
+        if (sysAdmin) {
+            if (StringUtils.hasText(role) && !User.ROLE_ADMIN.equals(role.trim())) {
+                throw BizException.forbidden("无权限，超级管理员只能创建超级管理员");
             }
             targetRole = User.ROLE_ADMIN;
+            targetTenantId = null;
+        } else {
+            targetRole = (StringUtils.hasText(role) && User.ROLE_ADMIN.equals(role.trim()))
+                    ? User.ROLE_ADMIN : User.ROLE_OPERATOR;
+            targetTenantId = TenantContext.require();
         }
-        // 归属：系统管理员创建的平台账号无租户；普通管理员创建的用户归属当前租户
-        Long targetTenantId = sysAdmin ? null : TenantContext.require();
 
         User user = new User();
         user.setUsername(username.trim());
@@ -260,7 +266,7 @@ public class UserService {
     /**
      * 管理员重置密码：
      * - 系统管理员可重置任意用户
-     * - 普通管理员只能重置本租户普通用户
+     * - 普通管理员可重置本租户任意账号（普通用户/普通管理员），租户隔离由 findByIdWithinScope 保证
      */
     public void resetPassword(Long id, String newPassword, String operatorName) {
         if (newPassword == null || newPassword.length() < 8) {
@@ -268,8 +274,8 @@ public class UserService {
         }
         User operator = findByUsername(operatorName);
         User target = findByIdWithinScope(id, operator);
-        if (!operator.isSystemAdmin() && User.ROLE_ADMIN.equals(target.getRole())) {
-            throw BizException.forbidden("无权限，只能重置本租户普通用户的密码");
+        if (target.isSystemAdmin() && !operator.isSystemAdmin()) {
+            throw BizException.forbidden("无权限，不能重置系统管理员密码");
         }
         target.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(target);
@@ -278,7 +284,7 @@ public class UserService {
     /**
      * 管理员启用/禁用账号：
      * - 系统管理员可禁用任意租户用户（含租户管理员），但不能禁用其他系统管理员
-     * - 普通管理员只能禁用本租户普通用户，不能禁用管理员/自己
+     * - 普通管理员可启停本租户任意账号（普通用户/普通管理员），但不能禁用自己；租户隔离由 findByIdWithinScope 保证
      */
     public void setStatus(Long id, String status, String operatorName) {
         if (!"active".equals(status) && !"disabled".equals(status)) {
@@ -291,9 +297,6 @@ public class UserService {
         }
         if ("disabled".equals(status) && target.getUsername().equals(operatorName)) {
             throw BizException.badRequest("不能禁用当前登录账号");
-        }
-        if (!operator.isSystemAdmin() && User.ROLE_ADMIN.equals(target.getRole())) {
-            throw BizException.forbidden("无权限，只能禁用本租户普通用户");
         }
         target.setStatus(status);
         userRepository.save(target);

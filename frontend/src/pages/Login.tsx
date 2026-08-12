@@ -50,7 +50,7 @@ export default function Login() {
     };
   }, []);
 
-  // 已登录（token 有效）时自动跳转工作台：
+  // 已登录（token 有效）时自动跳转（系统管理员 → 用户管理，其他 → 工作台）：
   // 解决"关闭浏览器重开后停在登录页 URL，误以为记住我失效"的问题
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +85,7 @@ export default function Login() {
       setToken(data.token, remember);
       setRole(data.role);
       setTenantId(data.tenantId);
+      // 所有角色登录后进工作台：系统管理员看平台统计，租户账号看本租户统计
       navigate("/");
     } catch (e) {
       setMsg((e as Error).message);

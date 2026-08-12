@@ -59,7 +59,8 @@ public class AuthController {
         // M7.13：记录客户端真实 IP 并离线解析地理归属（失败不影响登录）
         String ip = clientIp(httpRequest);
         String geo = ipGeoService.resolve(ip);
-        loginLogRepository.save(new LoginLog(user.getUsername(), ip, geo));
+        // M8.1：记录登录用户所属租户（系统管理员为 NULL），供租户级登录统计/地理分布过滤
+        loginLogRepository.save(new LoginLog(user.getUsername(), user.getTenantId(), ip, geo));
         String token = jwtUtil.generate(user.getUsername(), user.getTenantId());
         return ApiResponse.ok(Map.of(
                 "token", token,
@@ -105,13 +106,53 @@ public class AuthController {
 
     /** 系统登录统计（免登录）：累计登录次数 / 今日登录次数 / 今日登录人数 */
     @GetMapping("/login-stats")
-    public ApiResponse<LoginStats> loginStats() {
+    public ApiResponse<LoginStats> loginStats(HttpServletRequest request) {
         // M7.12：显式按中国时区取“今日”，避免容器 UTC 导致北京时间 0-8 点不归零
         LocalDateTime todayStart = LocalDate.now(ZoneId.of("Asia/Shanghai")).atStartOfDay();
-        long total = loginLogRepository.count();
-        long today = loginLogRepository.countByLoginAtGreaterThanEqual(todayStart);
-        long todayUsers = loginLogRepository.countDistinctUsernameAfter(todayStart);
+        Long tid = resolveTenantId(request);
+        long total;
+        long today;
+        long todayUsers;
+        if (tid != null) {
+            // 租户账号：只统计本租户（普通管理员/普通用户登录统计）
+            total = loginLogRepository.countByTenantId(tid);
+            today = loginLogRepository.countByTenantIdAndLoginAtGreaterThanEqual(tid, todayStart);
+            todayUsers = loginLogRepository.countDistinctUsernameAfter(tid, todayStart);
+        } else {
+            // 系统管理员（tenantId=null）或未登录：全平台统计
+            total = loginLogRepository.count();
+            today = loginLogRepository.countByLoginAtGreaterThanEqual(todayStart);
+            todayUsers = loginLogRepository.countDistinctUsernameAfter(todayStart);
+        }
         return ApiResponse.ok(new LoginStats(total, today, todayUsers));
+    }
+
+    /**
+     * M8.1：解析当前请求的租户过滤条件。
+     * 受保护路径：AuthInterceptor 已把 tenantId 写入 request attribute（login-trend/login-geo）。
+     * 公开路径（login-stats）：手动解析 Bearer token 查用户租户；无 token 视为未登录（登录页横幅用全平台统计）。
+     * 返回 null = 全平台统计（系统管理员或未登录）。
+     */
+    private Long resolveTenantId(HttpServletRequest request) {
+        Object attr = request.getAttribute(ATTR_TENANT_ID);
+        if (attr instanceof Long tid) {
+            return tid;
+        }
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            String username = jwtUtil.parseUsername(header.substring(7));
+            if (username != null) {
+                try {
+                    User u = userService.findByUsername(username);
+                    if (u != null) {
+                        return u.getTenantId();
+                    }
+                } catch (Exception ignore) {
+                    // 用户不存在/异常：按未登录处理，返回全平台统计
+                }
+            }
+        }
+        return null;
     }
 
     public record LoginStats(long totalLogins, long todayLogins, long todayUsers) {
@@ -126,7 +167,9 @@ public class AuthController {
      * 无数据的桶补 0，保证曲线连续。
      */
     @GetMapping("/login-trend")
-    public ApiResponse<LoginTrend> loginTrend(@RequestParam(defaultValue = "daily") String range) {
+    public ApiResponse<LoginTrend> loginTrend(@RequestParam(defaultValue = "daily") String range,
+                                              HttpServletRequest request) {
+        Long tid = resolveTenantId(request);
         // M7.12：按中国时区取“今天”，保证日/周/月/年桶边界正确
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
         List<String> labels = new ArrayList<>();
@@ -171,7 +214,11 @@ public class AuthController {
         }
 
         long[] counts = new long[labels.size()];
-        for (LoginLog log : loginLogRepository.findByLoginAtGreaterThanEqual(queryStart)) {
+        // M8.1：租户账号只统计本租户登录记录；系统管理员/未登录统计全平台
+        List<LoginLog> logs = tid != null
+                ? loginLogRepository.findByTenantIdAndLoginAtGreaterThanEqual(tid, queryStart)
+                : loginLogRepository.findByLoginAtGreaterThanEqual(queryStart);
+        for (LoginLog log : logs) {
             LocalDate d = log.getLoginAt().toLocalDate();
             int idx;
             if (bucketDays == 0) {
@@ -205,9 +252,14 @@ public class AuthController {
      * 同一省市多次登录合并计数。
      */
     @GetMapping("/login-geo")
-    public ApiResponse<LoginGeo> loginGeo() {
+    public ApiResponse<LoginGeo> loginGeo(HttpServletRequest request) {
+        Long tid = resolveTenantId(request);
         Map<String, GeoPoint> merged = new HashMap<>();
-        for (Object[] row : loginLogRepository.countByGeo()) {
+        // M8.1：租户账号只看本租户访问者地理分布；系统管理员/未登录看全平台
+        List<Object[]> rows = tid != null
+                ? loginLogRepository.countByGeo(tid)
+                : loginLogRepository.countByGeo();
+        for (Object[] row : rows) {
             String geo = (String) row[0];
             long count = ((Number) row[1]).longValue();
             String province = IpGeoService.provinceOf(geo);

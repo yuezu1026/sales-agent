@@ -21,6 +21,10 @@ public class LoginLog {
     @Column(nullable = false, length = 64)
     private String username;
 
+    /** M8.1：登录用户所属租户（系统管理员为 NULL）；租户级登录统计/地理分布按此过滤 */
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
     /** M7.13：登录客户端真实 IP（nginx 透传 X-Forwarded-For / X-Real-IP），历史记录为 NULL */
     @Column(length = 64)
     private String ip;
@@ -45,6 +49,13 @@ public class LoginLog {
         this.geo = geo;
     }
 
+    public LoginLog(String username, Long tenantId, String ip, String geo) {
+        this.username = username;
+        this.tenantId = tenantId;
+        this.ip = ip;
+        this.geo = geo;
+    }
+
     public Long getId() {
         return id;
     }
@@ -59,6 +70,14 @@ public class LoginLog {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
     }
 
     public LocalDateTime getLoginAt() {

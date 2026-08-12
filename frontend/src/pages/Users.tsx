@@ -27,7 +27,7 @@ function isTargetSystemAdmin(u: UserItem): boolean {
   return u.role === "admin" && (u.tenantId == null || u.tenantId === 0);
 }
 
-/** 用户管理（管理员）：系统管理员看所有租户用户，普通管理员看本租户并创建普通用户 */
+/** 用户管理（管理员）：系统管理员看所有租户用户；普通管理员看本租户 */
 export default function Users() {
   const navigate = useNavigate();
   const platform = isSystemAdmin();
@@ -40,8 +40,8 @@ export default function Users() {
     username: "",
     password: "",
     displayName: "",
-    // 目标角色：系统管理员视角可创建系统管理员/普通用户；普通管理员仅普通用户
-    role: "operator",
+    // 目标角色：超级管理员只能创建超级管理员；租户管理员创建本租户普通管理员/普通用户
+    role: platform ? "admin" : "operator",
   });
 
   const load = async () => {
@@ -84,7 +84,7 @@ export default function Users() {
         username: "",
         password: "",
         displayName: "",
-        role: platform ? "operator" : "operator",
+        role: platform ? "admin" : "operator",
       });
       load();
     } catch (e) {
@@ -142,8 +142,8 @@ export default function Users() {
         <div className="card">
           <h3>
             {platform
-              ? "创建账号（系统管理员可创建系统管理员或普通用户）"
-              : "创建普通用户（归属当前租户）"}
+              ? "创建账号（超级管理员只能创建超级管理员）"
+              : "创建账号（归属当前租户：普通管理员或普通用户）"}
           </h3>
           <div className="form-row">
             <input
@@ -167,16 +167,20 @@ export default function Users() {
                 setForm({ ...form, displayName: e.target.value })
               }
             />
-            {platform && (
-              <select
-                className="input"
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-              >
-                <option value="operator">普通用户</option>
-                <option value="admin">系统管理员</option>
-              </select>
-            )}
+            <select
+              className="input"
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+            >
+              {platform ? (
+                <option value="admin">超级管理员</option>
+              ) : (
+                <>
+                  <option value="operator">普通用户</option>
+                  <option value="admin">普通管理员</option>
+                </>
+              )}
+            </select>
             <button className="btn" disabled={creating} onClick={create}>
               {creating ? "创建中..." : "创建账号"}
             </button>
@@ -231,24 +235,23 @@ export default function Users() {
                         : "-"}
                     </td>
                     <td>
-                      {/* 系统管理员不可操作；普通管理员只能操作本租户普通用户 */}
-                      {!isTargetSystemAdmin(u) &&
-                        (platform || u.role !== "admin") && (
-                          <>
-                            <button
-                              className="btn btn-sm"
-                              onClick={() => resetPassword(u)}
-                            >
-                              重置密码
-                            </button>{" "}
-                            <button
-                              className="btn btn-sm"
-                              onClick={() => toggleStatus(u)}
-                            >
-                              {u.status === "active" ? "禁用" : "启用"}
-                            </button>
-                          </>
-                        )}
+                      {/* 系统管理员账号不可操作；租户账号（普通管理员/普通用户）可重置密码/启停 */}
+                      {!isTargetSystemAdmin(u) && (
+                        <>
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => resetPassword(u)}
+                          >
+                            重置密码
+                          </button>{" "}
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => toggleStatus(u)}
+                          >
+                            {u.status === "active" ? "禁用" : "启用"}
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}

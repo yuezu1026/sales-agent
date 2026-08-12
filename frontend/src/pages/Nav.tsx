@@ -1,15 +1,21 @@
 import { useEffect, useRef } from "react";
 import { NavLink } from "react-router-dom";
-import { getRole } from "../api/client";
+import { getRole, isSystemAdmin } from "../api/client";
 
 interface NavProps {
   current: string;
   onLogout: () => void;
 }
 
-/** 顶部导航（普通操作员不显示系统设置/用户管理） */
+/**
+ * 顶部导航
+ * - 系统管理员（平台级）：工作台（仅登录统计/地理分布）+ 用户管理 + 帮助
+ * - 普通管理员（租户级）：业务菜单 + 用户管理 + 系统设置
+ * - 普通用户：业务菜单 + 个人设置
+ */
 export function Nav({ current, onLogout }: NavProps) {
   const isAdmin = getRole() === "admin";
+  const sysAdmin = isSystemAdmin();
   /** 横向滚动容器 ref：切换页面后把当前激活项滚动到可视区 */
   const linksRef = useRef<HTMLDivElement>(null);
 
@@ -50,47 +56,14 @@ export function Nav({ current, onLogout }: NavProps) {
           />
         </a>
         <div className="nav-links" ref={linksRef}>
-          <NavLink to="/" className={current === "dashboard" ? "active" : ""}>
-            工作台
-          </NavLink>
-          <NavLink
-            to="/customers"
-            className={current === "customers" ? "active" : ""}
-          >
-            客户管理
-          </NavLink>
-          <NavLink
-            to="/prospect"
-            className={current === "prospect" ? "active" : ""}
-          >
-            潜客挖掘
-          </NavLink>
-          <NavLink
-            to="/profile"
-            className={current === "profile" ? "active" : ""}
-          >
-            客户画像
-          </NavLink>
-          <NavLink to="/inbox" className={current === "inbox" ? "active" : ""}>
-            收件箱
-          </NavLink>
-          <NavLink
-            to="/drafts"
-            className={current === "drafts" ? "active" : ""}
-          >
-            草稿箱
-          </NavLink>
-          <NavLink to="/sent" className={current === "sent" ? "active" : ""}>
-            发件箱
-          </NavLink>
-          <NavLink
-            to="/templates"
-            className={current === "templates" ? "active" : ""}
-          >
-            邮件模板
-          </NavLink>
-          {isAdmin && (
+          {sysAdmin ? (
             <>
+              <NavLink
+                to="/"
+                className={current === "dashboard" ? "active" : ""}
+              >
+                工作台
+              </NavLink>
               <NavLink
                 to="/users"
                 className={current === "users" ? "active" : ""}
@@ -98,24 +71,94 @@ export function Nav({ current, onLogout }: NavProps) {
                 用户管理
               </NavLink>
               <NavLink
-                to="/settings"
-                className={current === "settings" ? "active" : ""}
+                to="/help"
+                className={current === "help" ? "active" : ""}
               >
-                系统设置
+                帮助
+              </NavLink>
+            </>
+          ) : (
+            <>
+              <NavLink
+                to="/"
+                className={current === "dashboard" ? "active" : ""}
+              >
+                工作台
+              </NavLink>
+              <NavLink
+                to="/customers"
+                className={current === "customers" ? "active" : ""}
+              >
+                客户管理
+              </NavLink>
+              <NavLink
+                to="/prospect"
+                className={current === "prospect" ? "active" : ""}
+              >
+                潜客挖掘
+              </NavLink>
+              <NavLink
+                to="/profile"
+                className={current === "profile" ? "active" : ""}
+              >
+                客户画像
+              </NavLink>
+              <NavLink
+                to="/inbox"
+                className={current === "inbox" ? "active" : ""}
+              >
+                收件箱
+              </NavLink>
+              <NavLink
+                to="/drafts"
+                className={current === "drafts" ? "active" : ""}
+              >
+                草稿箱
+              </NavLink>
+              <NavLink
+                to="/sent"
+                className={current === "sent" ? "active" : ""}
+              >
+                发件箱
+              </NavLink>
+              <NavLink
+                to="/templates"
+                className={current === "templates" ? "active" : ""}
+              >
+                邮件模板
+              </NavLink>
+              {isAdmin && (
+                <>
+                  <NavLink
+                    to="/users"
+                    className={current === "users" ? "active" : ""}
+                  >
+                    用户管理
+                  </NavLink>
+                  <NavLink
+                    to="/settings"
+                    className={current === "settings" ? "active" : ""}
+                  >
+                    系统设置
+                  </NavLink>
+                </>
+              )}
+              {!isAdmin && (
+                <NavLink
+                  to="/settings"
+                  className={current === "settings" ? "active" : ""}
+                >
+                  个人设置
+                </NavLink>
+              )}
+              <NavLink
+                to="/help"
+                className={current === "help" ? "active" : ""}
+              >
+                帮助
               </NavLink>
             </>
           )}
-          {!isAdmin && (
-            <NavLink
-              to="/settings"
-              className={current === "settings" ? "active" : ""}
-            >
-              个人设置
-            </NavLink>
-          )}
-          <NavLink to="/help" className={current === "help" ? "active" : ""}>
-            帮助
-          </NavLink>
           <div className="spacer" />
           <span className="logout" onClick={onLogout}>
             退出登录
