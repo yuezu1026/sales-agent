@@ -7,6 +7,16 @@ body {
   color: #333;
 }
 
+/* 路由级代码分割（M8.2）：异步 chunk 加载中的占位 */
+.page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  color: #999;
+  font-size: 14px;
+}
+
 .card {
   background: #fff;
   border-radius: 8px;

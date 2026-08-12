@@ -29,7 +29,10 @@ server {
     index index.html;
 
     gzip on;
-    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_comp_level 6;
+    gzip_min_length 1k;
+    gzip_vary on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
 
     # ===== 产品前端（子路径 /app/ → 容器 8081，尾斜杠剥离 /app/ 前缀） =====
     location /app/ {
