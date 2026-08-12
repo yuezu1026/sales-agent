@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, clearToken } from "../api/client";
-import { confirmDialog } from "../utils/dialog";
 import { Nav } from "./Nav";
 
 /** 预设金额（元） */
@@ -47,6 +46,10 @@ export default function Donate() {
   } | null>(null);
   const [list, setList] = useState<DonationList | null>(null);
   const [page, setPage] = useState(0);
+  /** 收款码弹窗：null 关闭；alipay/wechat 弹出对应收款码 */
+  const [qrChannel, setQrChannel] = useState<"alipay" | "wechat" | null>(null);
+  /** 弹窗打开时锁定的金额（分），防止弹窗打开期间改金额导致记录与展示不一致 */
+  const [qrCents, setQrCents] = useState(0);
 
   const amountYuan = preset !== null ? preset : parseFloat(custom);
 
@@ -65,7 +68,8 @@ export default function Donate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pay = async (channel: "alipay" | "wechat") => {
+  /** 点击支付按钮：校验金额后弹出对应收款码（真实扫码付款） */
+  const pay = (channel: "alipay" | "wechat") => {
     if (
       !amountYuan ||
       isNaN(amountYuan) ||
@@ -75,27 +79,30 @@ export default function Donate() {
       setMsg({ type: "error", text: "捐助金额需在 1 ~ 100000 元之间" });
       return;
     }
-    const cents = Math.round(amountYuan * 100);
-    const channelName = channel === "alipay" ? "支付宝" : "微信支付";
-    const ok = await confirmDialog(
-      `确认通过${channelName}捐助 ¥${fmtYuan(cents)}？（演示环境模拟支付，不会真实扣款）`,
-      { title: "捐助确认", confirmText: "确认捐助" },
-    );
-    if (!ok) return;
+    setMsg(null);
+    setQrCents(Math.round(amountYuan * 100));
+    setQrChannel(channel);
+  };
+
+  /** 扫码付款完成后点击「我已完成支付」：记录入库 */
+  const confirmDonate = async () => {
+    const channel = qrChannel;
+    if (!channel) return;
     setPaying(true);
     setMsg(null);
     try {
       await api("/donations", {
         method: "POST",
         body: JSON.stringify({
-          amountCents: cents,
+          amountCents: qrCents,
           channel,
           donor: donor.trim(),
         }),
       });
+      setQrChannel(null);
       setMsg({
         type: "success",
-        text: `捐助成功！感谢您对拾客 Shike 开源项目的支持 ❤`,
+        text: "捐助成功！感谢您对拾客 Shike 开源项目的支持 ❤",
       });
       load(page);
     } catch (e) {
@@ -221,6 +228,49 @@ export default function Donate() {
           </>
         )}
       </div>
+
+      {/* 收款码弹窗：支付宝=alipay.jpg / 微信=wechat-pay.jpg，扫码真实付款后点「我已完成支付」入库 */}
+      {qrChannel && (
+        <div className="modal-mask" onClick={() => setQrChannel(null)}>
+          <div
+            className="modal donate-qr-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h3>{qrChannel === "alipay" ? "支付宝" : "微信支付"}扫码捐助</h3>
+            <p className="donate-qr-amount">
+              捐助金额：<strong>￥{fmtYuan(qrCents)}</strong>
+            </p>
+            <img
+              className="donate-qr-img"
+              src={`${import.meta.env.BASE_URL}${
+                qrChannel === "alipay" ? "alipay.jpg" : "wechat-pay.jpg"
+              }`}
+              alt={qrChannel === "alipay" ? "支付宝收款码" : "微信支付收款码"}
+            />
+            <p className="donate-qr-tip">
+              请打开{qrChannel === "alipay" ? "支付宝" : "微信"}
+              扫一扫，扫描上方收款码完成付款
+            </p>
+            <div className="dialog-actions">
+              <button
+                className="btn btn-sm btn-default"
+                onClick={() => setQrChannel(null)}
+              >
+                取消
+              </button>
+              <button
+                className="btn btn-sm"
+                disabled={paying}
+                onClick={confirmDonate}
+              >
+                我已完成支付
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
