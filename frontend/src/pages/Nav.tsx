@@ -7,13 +7,16 @@ interface NavProps {
   onLogout: () => void;
 }
 
-/** 邮件管理下拉子菜单项 */
+/** 邮件管理下拉子菜单项（租户用户全员可见） */
 const MAIL_ITEMS = [
   { to: "/inbox", key: "inbox", label: "收件箱" },
   { to: "/drafts", key: "drafts", label: "草稿箱" },
   { to: "/sent", key: "sent", label: "发件箱" },
   { to: "/templates", key: "templates", label: "邮件模板" },
 ];
+
+/** 邮件管理下拉子菜单项（仅租户管理员可见） */
+const MAIL_ITEMS_ADMIN = [{ to: "/unsubs", key: "unsubs", label: "退订管理" }];
 
 /**
  * 顶部导航
@@ -32,7 +35,9 @@ export function Nav({ current, onLogout }: NavProps) {
   const mailBtnRef = useRef<HTMLDivElement>(null);
   const mailMenuRef = useRef<HTMLDivElement>(null);
   const closeTimerRef = useRef<number | null>(null);
-  const mailActive = MAIL_ITEMS.some((it) => it.key === current);
+  const mailActive =
+    MAIL_ITEMS.some((it) => it.key === current) ||
+    (isAdmin && !sysAdmin && MAIL_ITEMS_ADMIN.some((it) => it.key === current));
 
   /** 展开邮件菜单（取消待执行的收起） */
   const openMail = () => {
@@ -201,6 +206,18 @@ export function Nav({ current, onLogout }: NavProps) {
                       {it.label}
                     </NavLink>
                   ))}
+                  {isAdmin &&
+                    !sysAdmin &&
+                    MAIL_ITEMS_ADMIN.map((it) => (
+                      <NavLink
+                        key={it.key}
+                        to={it.to}
+                        className={current === it.key ? "active" : ""}
+                        onClick={() => setMailOpen(false)}
+                      >
+                        {it.label}
+                      </NavLink>
+                    ))}
                 </div>
               )}
               {isAdmin && (

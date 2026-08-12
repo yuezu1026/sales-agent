@@ -14,6 +14,7 @@ import Sent from "./pages/Sent";
 import Settings from "./pages/Settings";
 import Templates from "./pages/Templates";
 import Unsubscribe from "./pages/Unsubscribe";
+import UnsubscribeManage from "./pages/UnsubscribeManage";
 import Users from "./pages/Users";
 
 /**
@@ -92,6 +93,14 @@ export default function App() {
         element={
           <BizGuard>
             <Templates />
+          </BizGuard>
+        }
+      />
+      <Route
+        path="/unsubs"
+        element={
+          <BizGuard>
+            <UnsubscribeManage />
           </BizGuard>
         }
       />
