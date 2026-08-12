@@ -1,0 +1,62 @@
+# AI智能获客助手 - 生产 nginx 站点配置（HTTPS 版）
+# 启用日期：2026-08-10（腾讯云 SSL 证书）
+# 备份：/etc/nginx/sites-enabled/sales-agent.bak-20260810
+
+# ===== HTTP 一律 301 跳转 HTTPS =====
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+    return 301 https://$host$request_uri;
+}
+
+# ===== HTTPS 主站点（TLS 终结，腾讯云证书） =====
+server {
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
+    server_name sales-agent.top;
+
+    # 腾讯云 SSL 证书（sales-agent.top_bundle.pem + sales-agent.top.key）
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    # ===== 宣传站（根路径，纯静态） =====
+    root /var/www/sales-agent;
+    index index.html;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
+    # ===== 产品前端（子路径 /app/ → 容器 8081，尾斜杠剥离 /app/ 前缀） =====
+    location /app/ {
+        proxy_pass http://127.0.0.1:8081/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ===== 产品后端 API（→ 容器 8080） =====
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
+
+    # ===== /login 兜底：避免被宣传站 try_files 吞掉落到宣传首页（M7.15） =====
+    location = /login {
+        return 301 /app/login;
+    }
+
+    # ===== 宣传站静态文件 =====
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

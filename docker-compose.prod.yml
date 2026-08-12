@@ -1,0 +1,18 @@
+# ============================================================
+# 服务器生产 override：启用 HTTPS（腾讯云 SSL 证书）
+# 用法（服务器上执行）：
+#   ./scripts/setup-cert.sh <腾讯云nginx包目录>   # 先装证书到 ./certs/
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# 本地开发保持纯 HTTP，勿使用本文件
+# ============================================================
+services:
+  gateway:
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # HTTPS 配置（80→443 跳转 + TLS 终结）覆盖默认 HTTP 配置
+      - ./gateway/nginx.ssl.conf:/etc/nginx/conf.d/default.conf:ro
+      # 腾讯云证书：全链证书 + 私钥（只读挂载）
+      - ./certs/fullchain.pem:/etc/nginx/certs/fullchain.pem:ro
+      - ./certs/privkey.pem:/etc/nginx/certs/privkey.pem:ro

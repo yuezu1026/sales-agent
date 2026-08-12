@@ -1,0 +1,3 @@
+-- V7: lead 表新增公司地址与股票代码
+ALTER TABLE lead ADD COLUMN IF NOT EXISTS address VARCHAR(255);
+ALTER TABLE lead ADD COLUMN IF NOT EXISTS stock_code VARCHAR(32);
