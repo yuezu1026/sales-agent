@@ -25,19 +25,20 @@ public class UserController {
         this.userService = userService;
     }
 
-    /** 用户列表 */
+    /** 用户列表（系统管理员看全部租户用户；普通管理员看本租户） */
     @GetMapping
-    public ApiResponse<List<User>> list(HttpServletRequest request) {
+    public ApiResponse<List<UserService.UserVO>> list(HttpServletRequest request) {
         userService.requireAdmin(currentUsername(request));
         return ApiResponse.ok(userService.listAll());
     }
 
-    /** 创建操作员账号（仅限 operator 角色） */
+    /** 创建用户：系统管理员可创建系统管理员/普通用户；普通管理员仅能创建本租户普通用户 */
     @PostMapping
     public ApiResponse<User> create(@Valid @RequestBody CreateUserRequest req,
                                     HttpServletRequest request) {
-        userService.requireAdmin(currentUsername(request));
-        User user = userService.createOperator(req.username(), req.password(), req.displayName());
+        String operator = currentUsername(request);
+        userService.requireAdmin(operator);
+        User user = userService.createUser(req.username(), req.password(), req.displayName(), req.role(), operator);
         return ApiResponse.ok(user);
     }
 
@@ -46,8 +47,9 @@ public class UserController {
     public ApiResponse<Void> resetPassword(@PathVariable Long id,
                                            @Valid @RequestBody ResetPasswordRequest req,
                                            HttpServletRequest request) {
-        userService.requireAdmin(currentUsername(request));
-        userService.resetPassword(id, req.newPassword());
+        String operator = currentUsername(request);
+        userService.requireAdmin(operator);
+        userService.resetPassword(id, req.newPassword(), operator);
         return ApiResponse.ok(null);
     }
 
@@ -69,7 +71,9 @@ public class UserController {
     public record CreateUserRequest(
             @NotBlank(message = "用户名不能为空") @Size(min = 3, max = 32, message = "用户名长度需 3-32 个字符") String username,
             @NotBlank(message = "密码不能为空") @Size(min = 8, message = "密码至少 8 位") String password,
-            String displayName) {
+            String displayName,
+            /** 目标角色：admin=系统管理员（仅系统管理员可指定）；缺省/operator=普通用户 */
+            String role) {
     }
 
     public record ResetPasswordRequest(

@@ -21,6 +21,10 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 用户服务：注册（建租户+租户管理员）、登录校验、当前用户、用户管理（仅超级管理员）
@@ -154,76 +158,158 @@ public class UserService {
         userRepository.save(user);
     }
 
-    /** 校验当前用户是否为超级管理员，否则 403 */
+    /**
+     * 校验当前用户是否为管理员（系统管理员或普通管理员），否则 403
+     * 系统管理员 = role=admin 且无租户；普通管理员 = role=admin 且属于某租户
+     */
     public User requireAdmin(String username) {
         User user = findByUsername(username);
         if (!User.ROLE_ADMIN.equals(user.getRole())) {
-            throw BizException.forbidden("无权限，仅超级管理员可操作");
+            throw BizException.forbidden("无权限，仅管理员可操作");
         }
         return user;
     }
 
-    /** 用户列表：租户管理员看本租户用户；平台超级管理员（无租户）看全部 */
-    public List<User> listAll() {
-        Long tenantId = TenantContext.get();
-        if (tenantId == null) {
-            return userRepository.findAll();
+    /** 校验当前用户是否为系统管理员（平台级，无租户），否则 403 */
+    public User requireSystemAdmin(String username) {
+        User user = findByUsername(username);
+        if (!user.isSystemAdmin()) {
+            throw BizException.forbidden("无权限，仅系统管理员可操作");
         }
-        return userRepository.findByTenantId(tenantId);
+        return user;
     }
 
-    /** 超级管理员创建操作员账号（同属当前租户；平台超级管理员创建的平台账号无租户） */
-    public User createOperator(String operatorName, String password, String displayName) {
-        if (operatorName == null || operatorName.isBlank()) {
+    /** 用户列表视图：含租户名（平台视角展示用） */
+    public record UserVO(Long id, String username, String displayName, String role,
+                         Long tenantId, String tenantName, String status,
+                         LocalDateTime createdAt, LocalDateTime lastLoginAt) {
+    }
+
+    /**
+     * 用户列表：
+     * - 系统管理员（无租户上下文）→ 所有租户的注册用户（含租户名）
+     * - 普通管理员 → 本租户用户
+     */
+    public List<UserVO> listAll() {
+        Long tenantId = TenantContext.get();
+        List<User> users = (tenantId == null)
+                ? userRepository.findAll()
+                : userRepository.findByTenantId(tenantId);
+        if (users.isEmpty()) {
+            return List.of();
+        }
+        // 批量查租户名（平台视角需要展示用户归属的租户）
+        Set<Long> ids = users.stream().map(User::getTenantId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> names = ids.isEmpty() ? Map.of()
+                : tenantRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(Tenant::getId, Tenant::getName, (a, b) -> a));
+        return users.stream()
+                .map(u -> new UserVO(u.getId(), u.getUsername(), u.getDisplayName(), u.getRole(),
+                        u.getTenantId(), names.get(u.getTenantId()), u.getStatus(),
+                        u.getCreatedAt(), u.getLastLoginAt()))
+                .toList();
+    }
+
+    /**
+     * 创建用户（管理员操作）：
+     * - 系统管理员（平台级）→ 可创建系统管理员（role=admin，无租户）；也可创建普通用户（role=operator，无租户）
+     * - 普通管理员（租户级）→ 只能给本租户创建普通用户（role=operator），禁止创建管理员防提权
+     */
+    public User createUser(String username, String password, String displayName, String role, String operatorName) {
+        if (username == null || username.isBlank()) {
             throw BizException.badRequest("用户名不能为空");
         }
-        if (operatorName.length() < 3 || operatorName.length() > 32) {
+        if (username.trim().length() < 3 || username.trim().length() > 32) {
             throw BizException.badRequest("用户名长度需 3-32 个字符");
+        }
+        if (!username.trim().matches("[a-zA-Z0-9_]+")) {
+            throw BizException.badRequest("用户名仅支持字母、数字、下划线");
         }
         if (password == null || password.length() < 8) {
             throw BizException.badRequest("密码至少 8 位");
         }
-        if (userRepository.findByUsername(operatorName).isPresent()) {
+        if (userRepository.findByUsername(username.trim()).isPresent()) {
             throw BizException.badRequest("用户名已存在");
         }
+
+        User operator = findByUsername(operatorName);
+        boolean sysAdmin = operator.isSystemAdmin();
+
+        // 目标角色：默认普通用户；仅系统管理员可指定创建管理员（平台级）
+        String targetRole = User.ROLE_OPERATOR;
+        if (StringUtils.hasText(role) && User.ROLE_ADMIN.equals(role.trim())) {
+            if (!sysAdmin) {
+                throw BizException.forbidden("无权限，普通管理员只能创建普通用户");
+            }
+            targetRole = User.ROLE_ADMIN;
+        }
+        // 归属：系统管理员创建的平台账号无租户；普通管理员创建的用户归属当前租户
+        Long targetTenantId = sysAdmin ? null : TenantContext.require();
+
         User user = new User();
-        user.setUsername(operatorName.trim());
+        user.setUsername(username.trim());
         user.setPasswordHash(passwordEncoder.encode(password));
-        user.setDisplayName(displayName == null || displayName.isBlank() ? operatorName.trim() : displayName.trim());
-        user.setRole(User.ROLE_OPERATOR);
+        user.setDisplayName(displayName == null || displayName.isBlank() ? username.trim() : displayName.trim());
+        user.setRole(targetRole);
         user.setStatus("active");
-        user.setTenantId(TenantContext.get());
+        user.setTenantId(targetTenantId);
         return userRepository.save(user);
     }
 
-    /** 超级管理员重置密码 */
-    public void resetPassword(Long id, String newPassword) {
+    /**
+     * 管理员重置密码：
+     * - 系统管理员可重置任意用户
+     * - 普通管理员只能重置本租户普通用户
+     */
+    public void resetPassword(Long id, String newPassword, String operatorName) {
         if (newPassword == null || newPassword.length() < 8) {
             throw BizException.badRequest("新密码至少 8 位");
         }
-        User user = findById(id);
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        User operator = findByUsername(operatorName);
+        User target = findByIdWithinScope(id, operator);
+        if (!operator.isSystemAdmin() && User.ROLE_ADMIN.equals(target.getRole())) {
+            throw BizException.forbidden("无权限，只能重置本租户普通用户的密码");
+        }
+        target.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(target);
     }
 
-    /** 超级管理员启用/禁用账号（禁止禁用超级管理员自身） */
+    /**
+     * 管理员启用/禁用账号：
+     * - 系统管理员可禁用任意租户用户（含租户管理员），但不能禁用其他系统管理员
+     * - 普通管理员只能禁用本租户普通用户，不能禁用管理员/自己
+     */
     public void setStatus(Long id, String status, String operatorName) {
         if (!"active".equals(status) && !"disabled".equals(status)) {
             throw BizException.badRequest("状态值不合法");
         }
-        User user = findById(id);
-        if (User.ROLE_ADMIN.equals(user.getRole())) {
-            throw BizException.badRequest("超级管理员账号不可禁用");
+        User operator = findByUsername(operatorName);
+        User target = findByIdWithinScope(id, operator);
+        if (target.isSystemAdmin()) {
+            throw BizException.badRequest("系统管理员账号不可禁用");
         }
-        if ("disabled".equals(status) && user.getUsername().equals(operatorName)) {
+        if ("disabled".equals(status) && target.getUsername().equals(operatorName)) {
             throw BizException.badRequest("不能禁用当前登录账号");
         }
-        user.setStatus(status);
-        userRepository.save(user);
+        if (!operator.isSystemAdmin() && User.ROLE_ADMIN.equals(target.getRole())) {
+            throw BizException.forbidden("无权限，只能禁用本租户普通用户");
+        }
+        target.setStatus(status);
+        userRepository.save(target);
     }
 
-    private User findById(Long id) {
-        return userRepository.findById(id)
+    /**
+     * 按操作者范围查找用户（租户隔离，防越权）：
+     * - 系统管理员可操作任意用户
+     * - 普通管理员只能操作本租户用户
+     */
+    private User findByIdWithinScope(Long id, User operator) {
+        if (operator.isSystemAdmin()) {
+            return userRepository.findById(id)
+                    .orElseThrow(() -> BizException.notFound("用户不存在"));
+        }
+        return userRepository.findByIdAndTenantId(id, operator.getTenantId())
                 .orElseThrow(() -> BizException.notFound("用户不存在"));
     }
 

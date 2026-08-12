@@ -1030,6 +1030,20 @@ textarea:focus {
   min-width: 850px;
 }
 
+/* 用户管理表格：列数随角色变化（系统管理员 8 列/租户管理员 7 列），操作列始终留足宽度避免按钮换行堆叠 */
+.table-wrap .table.user-table {
+  min-width: 1080px;
+}
+
+.table-wrap .table.user-table th:last-child {
+  width: 200px;
+  min-width: 200px;
+}
+
+.table-wrap .table.user-table td:last-child {
+  white-space: nowrap;
+}
+
 .table-wrap .table.inbox-table th:nth-child(1) {
   min-width: 160px;
 }

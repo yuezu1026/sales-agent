@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, clearToken, getRole } from "../api/client";
+import { api, clearToken, getRole, isSystemAdmin } from "../api/client";
 import { promptDialog } from "../utils/dialog";
 import { Nav } from "./Nav";
 
@@ -9,19 +9,28 @@ interface UserItem {
   username: string;
   displayName: string | null;
   role: string;
+  tenantId: number | null;
+  tenantName: string | null;
   status: string;
   createdAt: string;
   lastLoginAt: string | null;
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  admin: "超级管理员",
-  operator: "普通操作员",
-};
+/** 三级角色标签：系统管理员(admin+无租户) / 普通管理员(admin+有租户) / 普通用户(operator) */
+function roleLabel(u: UserItem): string {
+  if (u.role === "operator") return "普通用户";
+  return u.tenantId == null || u.tenantId === 0 ? "系统管理员" : "普通管理员";
+}
 
-/** 用户管理（仅超级管理员）：创建操作员账号 / 启用禁用 / 重置密码 */
+/** 目标用户是否为系统管理员（平台账号，不可被禁用/编辑） */
+function isTargetSystemAdmin(u: UserItem): boolean {
+  return u.role === "admin" && (u.tenantId == null || u.tenantId === 0);
+}
+
+/** 用户管理（管理员）：系统管理员看所有租户用户，普通管理员看本租户并创建普通用户 */
 export default function Users() {
   const navigate = useNavigate();
+  const platform = isSystemAdmin();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
@@ -31,6 +40,8 @@ export default function Users() {
     username: "",
     password: "",
     displayName: "",
+    // 目标角色：系统管理员视角可创建系统管理员/普通用户；普通管理员仅普通用户
+    role: "operator",
   });
 
   const load = async () => {
@@ -65,10 +76,16 @@ export default function Users() {
           username: form.username.trim(),
           password: form.password,
           displayName: form.displayName.trim() || undefined,
+          role: form.role,
         }),
       });
-      setMsg({ type: "ok", text: `操作员 ${form.username.trim()} 创建成功` });
-      setForm({ username: "", password: "", displayName: "" });
+      setMsg({ type: "ok", text: `用户 ${form.username.trim()} 创建成功` });
+      setForm({
+        username: "",
+        password: "",
+        displayName: "",
+        role: platform ? "operator" : "operator",
+      });
       load();
     } catch (e) {
       setMsg({ type: "err", text: (e as Error).message });
@@ -123,7 +140,11 @@ export default function Users() {
       <div className="page">
         <h2>用户管理</h2>
         <div className="card">
-          <h3>创建操作员账号</h3>
+          <h3>
+            {platform
+              ? "创建账号（系统管理员可创建系统管理员或普通用户）"
+              : "创建普通用户（归属当前租户）"}
+          </h3>
           <div className="form-row">
             <input
               className="input"
@@ -146,8 +167,18 @@ export default function Users() {
                 setForm({ ...form, displayName: e.target.value })
               }
             />
+            {platform && (
+              <select
+                className="input"
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+              >
+                <option value="operator">普通用户</option>
+                <option value="admin">系统管理员</option>
+              </select>
+            )}
             <button className="btn" disabled={creating} onClick={create}>
-              {creating ? "创建中..." : "创建操作员"}
+              {creating ? "创建中..." : "创建账号"}
             </button>
           </div>
         </div>
@@ -155,63 +186,75 @@ export default function Users() {
         {msg && <div className={`msg ${msg.type}`}>{msg.text}</div>}
 
         <div className="card">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>用户名</th>
-                <th>显示名称</th>
-                <th>角色</th>
-                <th>状态</th>
-                <th>创建时间</th>
-                <th>最后登录</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.username}</td>
-                  <td>{u.displayName || "-"}</td>
-                  <td>{ROLE_LABEL[u.role] ?? u.role}</td>
-                  <td>
-                    {u.status === "active" ? (
-                      <span style={{ color: "#16a34a" }}>正常</span>
-                    ) : (
-                      <span style={{ color: "#e5484d" }}>已禁用</span>
-                    )}
-                  </td>
-                  <td>
-                    {u.createdAt
-                      ? u.createdAt.replace("T", " ").slice(0, 16)
-                      : "-"}
-                  </td>
-                  <td>
-                    {u.lastLoginAt
-                      ? u.lastLoginAt.replace("T", " ").slice(0, 16)
-                      : "-"}
-                  </td>
-                  <td>
-                    {u.role !== "admin" && (
-                      <>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => resetPassword(u)}
-                        >
-                          重置密码
-                        </button>{" "}
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => toggleStatus(u)}
-                        >
-                          {u.status === "active" ? "禁用" : "启用"}
-                        </button>
-                      </>
-                    )}
-                  </td>
+          <div className="table-wrap">
+            <table className="table user-table">
+              <thead>
+                <tr>
+                  <th>用户名</th>
+                  <th>显示名称</th>
+                  {platform && <th>所属租户</th>}
+                  <th>角色</th>
+                  <th>状态</th>
+                  <th>创建时间</th>
+                  <th>最后登录</th>
+                  <th>操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((u) => (
+                  <tr key={u.id}>
+                    <td>{u.username}</td>
+                    <td>{u.displayName || "-"}</td>
+                    {platform && (
+                      <td>
+                        {u.tenantId == null || u.tenantId === 0
+                          ? "平台"
+                          : u.tenantName || `租户#${u.tenantId}`}
+                      </td>
+                    )}
+                    <td>{roleLabel(u)}</td>
+                    <td>
+                      {u.status === "active" ? (
+                        <span style={{ color: "#16a34a" }}>正常</span>
+                      ) : (
+                        <span style={{ color: "#e5484d" }}>已禁用</span>
+                      )}
+                    </td>
+                    <td>
+                      {u.createdAt
+                        ? u.createdAt.replace("T", " ").slice(0, 16)
+                        : "-"}
+                    </td>
+                    <td>
+                      {u.lastLoginAt
+                        ? u.lastLoginAt.replace("T", " ").slice(0, 16)
+                        : "-"}
+                    </td>
+                    <td>
+                      {/* 系统管理员不可操作；普通管理员只能操作本租户普通用户 */}
+                      {!isTargetSystemAdmin(u) &&
+                        (platform || u.role !== "admin") && (
+                          <>
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => resetPassword(u)}
+                            >
+                              重置密码
+                            </button>{" "}
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => toggleStatus(u)}
+                            >
+                              {u.status === "active" ? "禁用" : "启用"}
+                            </button>
+                          </>
+                        )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

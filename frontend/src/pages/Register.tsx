@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, setRole, setToken } from "../api/client";
+import { api, setRole, setTenantId, setToken } from "../api/client";
 
 /** 注册成功即登录，返回结构与登录一致 + tenantId */
 interface RegisterResult {
@@ -59,6 +59,7 @@ export default function Register() {
       // 注册即登录：保存 token/角色后直达工作台
       setToken(data.token, true);
       setRole(data.role);
+      setTenantId(data.tenantId);
       navigate("/");
     } catch (e) {
       setMsg((e as Error).message);

@@ -1,12 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api, getRemember, getToken, setRole, setToken } from "../api/client";
+import {
+  api,
+  getRemember,
+  getToken,
+  setRole,
+  setTenantId,
+  setToken,
+} from "../api/client";
 
 interface LoginResult {
   token: string;
   username: string;
   displayName: string;
   role: string;
+  tenantId: number | null;
 }
 
 /** 系统登录统计（与后端 /api/auth/login-stats 返回对齐） */
@@ -76,6 +84,7 @@ export default function Login() {
       });
       setToken(data.token, remember);
       setRole(data.role);
+      setTenantId(data.tenantId);
       navigate("/");
     } catch (e) {
       setMsg((e as Error).message);

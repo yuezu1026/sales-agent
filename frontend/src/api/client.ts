@@ -1,5 +1,6 @@
 const TOKEN_KEY = "aic_token";
 const ROLE_KEY = "aic_role";
+const TENANT_KEY = "aic_tenant";
 const REMEMBER_KEY = "aic_remember";
 
 /**
@@ -71,6 +72,8 @@ export function clearToken() {
   sessionStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(ROLE_KEY);
   sessionStorage.removeItem(ROLE_KEY);
+  localStorage.removeItem(TENANT_KEY);
+  sessionStorage.removeItem(TENANT_KEY);
 }
 
 /** 仅清除角色（一般无需单独调用，clearToken 已包含） */
@@ -86,6 +89,23 @@ export function getRole(): string | null {
 /** 保存角色（与 token 同存储位置，保持一致） */
 export function setRole(role: string) {
   pickStore().setItem(ROLE_KEY, role);
+}
+
+/** 保存租户 id（0/null = 系统管理员平台账号，无租户） */
+export function setTenantId(tenantId: number | null | undefined) {
+  pickStore().setItem(TENANT_KEY, tenantId == null ? "0" : String(tenantId));
+}
+
+/** 当前登录账号的租户 id；0 = 系统管理员（平台级） */
+export function getTenantId(): number {
+  const v =
+    localStorage.getItem(TENANT_KEY) ?? sessionStorage.getItem(TENANT_KEY);
+  return v == null ? 0 : Number(v);
+}
+
+/** 当前登录账号是否为系统管理员（平台级，无租户） */
+export function isSystemAdmin(): boolean {
+  return getRole() === "admin" && getTenantId() === 0;
 }
 
 /** 上次登录是否勾选了"记住我"（默认 true，便于新用户默认免登录） */

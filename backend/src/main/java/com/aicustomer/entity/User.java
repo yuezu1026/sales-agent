@@ -118,4 +118,14 @@ public class User {
     public void setLastLoginAt(LocalDateTime lastLoginAt) {
         this.lastLoginAt = lastLoginAt;
     }
+
+    /** 系统管理员（平台级）：role=admin 且无租户 */
+    public boolean isSystemAdmin() {
+        return ROLE_ADMIN.equals(role) && tenantId == null;
+    }
+
+    /** 普通管理员（租户级）：role=admin 且属于某租户 */
+    public boolean isTenantAdmin() {
+        return ROLE_ADMIN.equals(role) && tenantId != null;
+    }
 }
