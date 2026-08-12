@@ -1601,9 +1601,12 @@ h3 {
 }
 
 .donate-qr-img {
-  width: 100%;
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  width: auto;
+  height: auto;
   max-height: 55vh;
-  object-fit: contain;
   border-radius: 8px;
   border: 1px solid #eee;
   background: #fff;
