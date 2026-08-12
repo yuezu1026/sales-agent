@@ -26,15 +26,15 @@
 
 ## 设计决策
 
-| 决策点       | 结论                                                                                                    |
-| :----------- | :------------------------------------------------------------------------------------------------------ |
-| 个人信息字段 | users 表新增 email/wechat/phone 三列（可空）；displayName 沿用已有字段                                  |
-| 公司名称     | 沿用 Tenant.name（租户级），个人设置改公司名 → 更新本租户 Tenant.name；平台管理员（tenantId=null）隐藏  |
-| 新接口       | `PUT /auth/profile`：更新本人 displayName/email/wechat/phone/companyName（基于 token 身份，无需管理员） |
-| me 扩展      | `GET /auth/me` 响应附加 companyName（租户名，@Transient），前端回填用                                   |
-| 校验         | 业务校验失败用 400（不用 401）；displayName 空/超长校验；email/phone 宽松格式校验                       |
-| 前端位置     | Settings.tsx 顶部新增「个人信息」卡片（所有角色可见），下方保留修改密码/系统设置等原内容                |
-| 权限         | 仅能改自己的资料（ATTR_USERNAME 定位用户）；不能改 username/role/tenantId/status                        |
+| 决策点       | 结论                                                                                                                                                                                                                     |
+| :----------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 个人信息字段 | users 表新增 email/wechat/phone 三列（可空）；displayName 沿用已有字段                                                                                                                                                   |
+| 公司名称     | 沿用 Tenant.name（租户级），个人设置改公司名 → 更新本租户 Tenant.name；平台管理员（tenantId=null）隐藏                                                                                                                   |
+| 新接口       | `PUT /auth/profile`：更新本人 displayName/email/wechat/phone/companyName（基于 token 身份，无需管理员）                                                                                                                  |
+| me 扩展      | `GET /auth/me` 响应附加 companyName（租户名，@Transient），前端回填用                                                                                                                                                    |
+| 校验         | 业务校验失败用 400（不用 401）；displayName 空/超长校验；email/phone 宽松格式校验                                                                                                                                        |
+| 前端位置     | Settings.tsx 顶部新增「个人信息」卡片（所有角色可见），下方保留修改密码/系统设置等原内容                                                                                                                                 |
+| 权限         | 仅能改自己的资料（ATTR_USERNAME 定位用户）；不能改 username/role/tenantId/status                                                                                                                                         |
 | 公司名权限   | 公司名称仅租户管理员（role=admin 且 tenantId 非空）可修改：前端仅租户管理员可编辑（普通用户 disabled 只读、平台管理员无租户不显示）；后端 updateProfile 非租户管理员提交 companyName → 400「仅租户管理员可修改公司名称」 |
 
 ## 改动清单
@@ -51,21 +51,21 @@
 
 ### API 验证（后端重启后）
 
-| 场景 | 结果 |
-| :--- | :--- |
-| member1 普通用户带 companyName 修改 | 400「仅租户管理员可修改公司名称」✅ |
-| member1 不带 companyName 修改资料 | 200，displayName/email/wechat/phone 保存成功 ✅ |
-| rbac_a 租户管理员带 companyName 修改 | 200，公司名 → 张三科技公司V2 ✅ |
-| admin 平台管理员带 companyName 修改 | 400「仅租户管理员可修改公司名称」✅ |
-| displayName 空 / email 格式错 | 400（需求 B 已验证）✅ |
+| 场景                                 | 结果                                            |
+| :----------------------------------- | :---------------------------------------------- |
+| member1 普通用户带 companyName 修改  | 400「仅租户管理员可修改公司名称」✅             |
+| member1 不带 companyName 修改资料    | 200，displayName/email/wechat/phone 保存成功 ✅ |
+| rbac_a 租户管理员带 companyName 修改 | 200，公司名 → 张三科技公司V2 ✅                 |
+| admin 平台管理员带 companyName 修改  | 400「仅租户管理员可修改公司名称」✅             |
+| displayName 空 / email 格式错        | 400（需求 B 已验证）✅                          |
 
 ### 浏览器 E2E（三角色视角，localhost/app）
 
-| 角色 | 公司名称字段表现 | 验证 |
-| :--- | :--- | :--- |
-| member1（普通用户） | 可见 + disabled 只读，title「公司名称仅租户管理员可修改」 | 保存成功且 DB 租户名未变；playwright fill 被 disabled 阻止 ✅ |
-| rbac_a（租户管理员） | 可见 + 可编辑（disabled=false） | 改为「张三科技公司」保存成功，DB tenants id=4 name 已更新 ✅ |
-| admin（平台管理员） | 无设置页入口（BizGuard 拦截 /settings → /users，既有设计） | API 传 companyName → 400 ✅ |
+| 角色                 | 公司名称字段表现                                           | 验证                                                          |
+| :------------------- | :--------------------------------------------------------- | :------------------------------------------------------------ |
+| member1（普通用户）  | 可见 + disabled 只读，title「公司名称仅租户管理员可修改」  | 保存成功且 DB 租户名未变；playwright fill 被 disabled 阻止 ✅ |
+| rbac_a（租户管理员） | 可见 + 可编辑（disabled=false）                            | 改为「张三科技公司」保存成功，DB tenants id=4 name 已更新 ✅  |
+| admin（平台管理员）  | 无设置页入口（BizGuard 拦截 /settings → /users，既有设计） | API 传 companyName → 400 ✅                                   |
 
 ### 布局 DOM 检查（getBoundingClientRect，禁截图）
 

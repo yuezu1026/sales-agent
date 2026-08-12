@@ -126,7 +126,7 @@ export default function Settings() {
   useEffect(() => {
     load();
     loadProfile();
-    if (isAdmin) loadUnsub();
+    if (tenantAdmin) loadUnsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -391,7 +391,7 @@ export default function Settings() {
           )}
         </div>
 
-        {isAdmin && (
+        {tenantAdmin && (
           <div className="card" style={{ marginTop: 20 }}>
             <h3>退订管理</h3>
             <p style={{ color: "#666", fontSize: 13, marginTop: 0 }}>
