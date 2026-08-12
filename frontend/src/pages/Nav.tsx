@@ -141,6 +141,12 @@ export function Nav({ current, onLogout }: NavProps) {
                 用户管理
               </NavLink>
               <NavLink
+                to="/donate"
+                className={current === "donate" ? "active" : ""}
+              >
+                ❤ 捐助
+              </NavLink>
+              <NavLink
                 to="/help"
                 className={current === "help" ? "active" : ""}
               >
@@ -244,6 +250,12 @@ export function Nav({ current, onLogout }: NavProps) {
                   个人设置
                 </NavLink>
               )}
+              <NavLink
+                to="/donate"
+                className={current === "donate" ? "active" : ""}
+              >
+                ❤ 捐助
+              </NavLink>
               <NavLink
                 to="/help"
                 className={current === "help" ? "active" : ""}

@@ -30,6 +30,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/auth/register",
                         "/api/auth/login-stats",
                         "/api/unsubscribe",
+                        "/api/donations",
                         "/api/track/**"
                 );
 

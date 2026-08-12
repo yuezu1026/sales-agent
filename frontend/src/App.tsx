@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { isSystemAdmin } from "./api/client";
 import Customers from "./pages/Customers";
 import Dashboard from "./pages/Dashboard";
+import Donate from "./pages/Donate";
 import Drafts from "./pages/Drafts";
 import Help from "./pages/Help";
 import Inbox from "./pages/Inbox";
@@ -35,6 +36,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/unsubscribe" element={<Unsubscribe />} />
+      {/* 捐助拾客 Shike：公开页（免登录），全角色可见 */}
+      <Route path="/donate" element={<Donate />} />
       <Route path="/users" element={<Users />} />
       <Route path="/help" element={<Help />} />
       {/* 工作台：系统管理员放行（Dashboard 内按身份只显示登录统计/地理分布），
