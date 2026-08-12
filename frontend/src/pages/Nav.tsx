@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { getRole, isSystemAdmin } from "../api/client";
 
@@ -6,6 +6,14 @@ interface NavProps {
   current: string;
   onLogout: () => void;
 }
+
+/** 邮件管理下拉子菜单项 */
+const MAIL_ITEMS = [
+  { to: "/inbox", key: "inbox", label: "收件箱" },
+  { to: "/drafts", key: "drafts", label: "草稿箱" },
+  { to: "/sent", key: "sent", label: "发件箱" },
+  { to: "/templates", key: "templates", label: "邮件模板" },
+];
 
 /**
  * 顶部导航
@@ -18,6 +26,63 @@ export function Nav({ current, onLogout }: NavProps) {
   const sysAdmin = isSystemAdmin();
   /** 横向滚动容器 ref：切换页面后把当前激活项滚动到可视区 */
   const linksRef = useRef<HTMLDivElement>(null);
+
+  /** 邮件管理下拉：展开状态 / 按钮与菜单 ref / 收起计时器 */
+  const [mailOpen, setMailOpen] = useState(false);
+  const mailBtnRef = useRef<HTMLDivElement>(null);
+  const mailMenuRef = useRef<HTMLDivElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const mailActive = MAIL_ITEMS.some((it) => it.key === current);
+
+  /** 展开邮件菜单（取消待执行的收起） */
+  const openMail = () => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    setMailOpen(true);
+  };
+
+  /** 延迟收起：鼠标移出按钮/菜单后留出移动时间，避免闪烁 */
+  const scheduleCloseMail = () => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => setMailOpen(false), 150);
+  };
+
+  // 菜单 fixed 定位到按钮下方；右溢出视口时向左收
+  useEffect(() => {
+    if (!mailOpen) return;
+    const btn = mailBtnRef.current;
+    const menu = mailMenuRef.current;
+    if (!btn || !menu) return;
+    const rect = btn.getBoundingClientRect();
+    const mw = menu.offsetWidth;
+    const left =
+      rect.left + mw > window.innerWidth
+        ? Math.max(8, window.innerWidth - mw - 8)
+        : rect.left;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${rect.bottom}px`;
+  }, [mailOpen]);
+
+  // 点击导航/页面其他区域时收起（移动端无 hover 的兜底）
+  useEffect(() => {
+    if (!mailOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (mailBtnRef.current?.contains(t) || mailMenuRef.current?.contains(t)) {
+        return;
+      }
+      setMailOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [mailOpen]);
+
+  // 卸载时清理收起计时器
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    },
+    [],
+  );
 
   // 手机端导航横向滚动时，自动把高亮的当前栏目滚动到可视区，
   // 避免点击「草稿箱/发件箱」等靠后栏目后看不到当前所在页的高亮项
@@ -103,30 +168,41 @@ export function Nav({ current, onLogout }: NavProps) {
               >
                 客户画像
               </NavLink>
-              <NavLink
-                to="/inbox"
-                className={current === "inbox" ? "active" : ""}
+              <div
+                className={`nav-dropdown${mailActive ? " active" : ""}`}
+                ref={mailBtnRef}
+                onMouseEnter={openMail}
+                onMouseLeave={scheduleCloseMail}
+                onClick={(e) => {
+                  // 只负责打开：mouseenter/click 都是 discrete 事件会各自同步 flush，
+                  // 若此处 toggle，mouseenter 先打开并重渲染，click 拿到新闭包又把它关掉
+                  e.stopPropagation();
+                  openMail();
+                }}
               >
-                收件箱
-              </NavLink>
-              <NavLink
-                to="/drafts"
-                className={current === "drafts" ? "active" : ""}
-              >
-                草稿箱
-              </NavLink>
-              <NavLink
-                to="/sent"
-                className={current === "sent" ? "active" : ""}
-              >
-                发件箱
-              </NavLink>
-              <NavLink
-                to="/templates"
-                className={current === "templates" ? "active" : ""}
-              >
-                邮件模板
-              </NavLink>
+                <span className="nav-dropdown-title">
+                  邮件管理<span className="nav-caret">▾</span>
+                </span>
+              </div>
+              {mailOpen && (
+                <div
+                  className="nav-dropdown-menu"
+                  ref={mailMenuRef}
+                  onMouseEnter={openMail}
+                  onMouseLeave={scheduleCloseMail}
+                >
+                  {MAIL_ITEMS.map((it) => (
+                    <NavLink
+                      key={it.key}
+                      to={it.to}
+                      className={current === it.key ? "active" : ""}
+                      onClick={() => setMailOpen(false)}
+                    >
+                      {it.label}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
               {isAdmin && (
                 <>
                   <NavLink

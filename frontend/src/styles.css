@@ -556,6 +556,63 @@ select.status-select {
   flex-shrink: 0;
 }
 
+/* ===== 导航下拉菜单（邮件管理） ===== */
+.nav .nav-dropdown {
+  position: relative;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.nav .nav-dropdown .nav-dropdown-title {
+  display: inline-block;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 15px;
+  white-space: nowrap;
+  padding: 16px 0;
+  line-height: 1;
+}
+
+.nav .nav-dropdown.active .nav-dropdown-title {
+  color: #fff;
+  font-weight: 600;
+}
+
+.nav .nav-dropdown .nav-caret {
+  margin-left: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* fixed 定位：nav-links 是 overflow 裁剪容器（横向滚动），absolute 子菜单会被裁掉 */
+.nav .nav-dropdown-menu {
+  position: fixed;
+  z-index: 1000;
+  background: #001529;
+  min-width: 150px;
+  padding: 6px 0;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+
+.nav .nav-dropdown-menu a {
+  display: block;
+  padding: 10px 20px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.nav .nav-dropdown-menu a:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.nav .nav-dropdown-menu a.active {
+  color: #fff;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .container {
   max-width: 100%;
   margin: 24px auto;
@@ -1255,6 +1312,10 @@ h3 {
   }
 
   .nav-links a {
+    font-size: 14px;
+  }
+
+  .nav .nav-dropdown .nav-dropdown-title {
     font-size: 14px;
   }
 }
