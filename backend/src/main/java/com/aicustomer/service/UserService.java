@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -199,9 +200,10 @@ public class UserService {
             return List.of();
         }
         // 批量查租户名（平台视角需要展示用户归属的租户）
+        // 注意：平台级账号（tenant_id 为 NULL，如初始 admin）无租户，get(null) 需容忍
         Set<Long> ids = users.stream().map(User::getTenantId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
-        Map<Long, String> names = ids.isEmpty() ? Map.of()
+        Map<Long, String> names = ids.isEmpty() ? new HashMap<>()
                 : tenantRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(Tenant::getId, Tenant::getName, (a, b) -> a));
         return users.stream()
