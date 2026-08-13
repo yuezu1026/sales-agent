@@ -20,7 +20,7 @@ const MAIL_ITEMS_ADMIN = [{ to: "/unsubs", key: "unsubs", label: "退订管理" 
 
 /**
  * 顶部导航
- * - 系统管理员（平台级）：工作台（仅登录统计/地理分布）+ 用户管理 + 帮助
+ * - 系统管理员（平台级）：工作台（仅登录统计/地理分布）+ 用户管理 + 租户管理 + 帮助
  * - 普通管理员（租户级）：业务菜单 + 用户管理 + 系统设置
  * - 普通用户：业务菜单 + 个人设置
  */
@@ -139,6 +139,12 @@ export function Nav({ current, onLogout }: NavProps) {
                 className={current === "users" ? "active" : ""}
               >
                 用户管理
+              </NavLink>
+              <NavLink
+                to="/tenants"
+                className={current === "tenants" ? "active" : ""}
+              >
+                租户管理
               </NavLink>
               <NavLink
                 to="/donate"

@@ -11,6 +11,7 @@ const Register = lazy(() => import("./pages/Register"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 const Donate = lazy(() => import("./pages/Donate"));
 const Users = lazy(() => import("./pages/Users"));
+const Tenants = lazy(() => import("./pages/Tenants"));
 const Help = lazy(() => import("./pages/Help"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Customers = lazy(() => import("./pages/Customers"));
@@ -24,7 +25,7 @@ const UnsubscribeManage = lazy(() => import("./pages/UnsubscribeManage"));
 const Settings = lazy(() => import("./pages/Settings"));
 
 /**
- * 业务页面守卫：系统管理员（平台级）只能访问 工作台（仅登录统计/地理分布）/用户管理/帮助，
+ * 业务页面守卫：系统管理员（平台级）只能访问 工作台（仅登录统计/地理分布）/用户管理/租户管理/帮助，
  * 访问其余业务页面（客户/邮件/潜客等）一律重定向到用户管理，
  * 防止手动输入 URL 触达租户数据。
  */
@@ -45,6 +46,7 @@ export default function App() {
         {/* 捐助拾客 Shike：公开页（免登录），全角色可见 */}
         <Route path="/donate" element={<Donate />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/tenants" element={<Tenants />} />
         <Route path="/help" element={<Help />} />
         {/* 工作台：系统管理员放行（Dashboard 内按身份只显示登录统计/地理分布），
           其余业务页仍由 BizGuard 拦截 */}
