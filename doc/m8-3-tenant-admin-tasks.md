@@ -38,4 +38,5 @@
 
 ## 四、交付
 
-- Git 提交：随任务文档一并提交
+- Git 提交：`4f1bc9c`（M8.3 新增租户管理），已推送 origin/main
+- 部署：待下次部署时随前端一起（scp → build → up -d --no-deps frontend），后端需重启容器生效
