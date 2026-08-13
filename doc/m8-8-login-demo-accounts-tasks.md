@@ -46,11 +46,11 @@
 
 ### 4.1 API 登录验证（线上 sales-agent.top，`node doc/m88-login-test.mjs`）
 
-| # | 账号 | 结果 |
-| :--- | :--- | :--- |
-| 1 | `admin / Admin@123456`（系统管理员） | ✅ role=admin, tenantId=0 |
-| 2 | `demo_admin / Demo@123456`（租户管理员） | ✅ role=admin, tenantId=4（演示租户） |
-| 3 | `demo_user / Demo@123456`（普通用户） | ✅ role=operator, tenantId=4（演示租户） |
+| #   | 账号                                     | 结果                                     |
+| :-- | :--------------------------------------- | :--------------------------------------- |
+| 1   | `admin / Admin@123456`（系统管理员）     | ✅ role=admin, tenantId=0                |
+| 2   | `demo_admin / Demo@123456`（租户管理员） | ✅ role=admin, tenantId=4（演示租户）    |
+| 3   | `demo_user / Demo@123456`（普通用户）    | ✅ role=operator, tenantId=4（演示租户） |
 
 ### 4.2 浏览器 E2E（sales-agent.top/app/login）
 
