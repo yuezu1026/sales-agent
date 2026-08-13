@@ -199,11 +199,22 @@ public class UserService {
         List<User> users = (tenantId == null)
                 ? userRepository.findByRoleAndTenantIdIsNull(User.ROLE_ADMIN)
                 : userRepository.findByTenantId(tenantId);
+        return toUserVOs(users);
+    }
+
+    /**
+     * 所有用户列表（只读，仅系统管理员）：所有租户的所有用户，含租户名。
+     * 供「用户管理 → 所有用户管理」只读视图使用，无任何写操作。
+     */
+    public List<UserVO> listAllUsers() {
+        return toUserVOs(userRepository.findAll());
+    }
+
+    /** 用户列表 → UserVO（批量查租户名；平台级账号 tenant_id 为 NULL 容忍） */
+    private List<UserVO> toUserVOs(List<User> users) {
         if (users.isEmpty()) {
             return List.of();
         }
-        // 批量查租户名（平台视角需要展示用户归属的租户）
-        // 注意：平台级账号（tenant_id 为 NULL，如初始 admin）无租户，get(null) 需容忍
         Set<Long> ids = users.stream().map(User::getTenantId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<Long, String> names = ids.isEmpty() ? new HashMap<>()

@@ -32,6 +32,13 @@ public class UserController {
         return ApiResponse.ok(userService.listAll());
     }
 
+    /** 所有用户列表（只读，仅系统管理员）：所有租户所有用户，含租户名，供「所有用户管理」视图 */
+    @GetMapping("/all")
+    public ApiResponse<List<UserService.UserVO>> listAllUsers(HttpServletRequest request) {
+        userService.requireSystemAdmin(currentUsername(request));
+        return ApiResponse.ok(userService.listAllUsers());
+    }
+
     /** 创建用户：系统管理员可创建系统管理员/普通用户；普通管理员仅能创建本租户普通用户 */
     @PostMapping
     public ApiResponse<User> create(@Valid @RequestBody CreateUserRequest req,
