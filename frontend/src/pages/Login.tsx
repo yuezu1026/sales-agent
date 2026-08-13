@@ -101,10 +101,17 @@ export default function Login() {
     setMsg(null);
   };
 
-  /** 一键填入默认测试账号，免手动输入（admin / Admin@123456） */
-  const fillTestAccount = () => {
-    setUsername("admin");
-    setPassword("Admin@123456");
+  /** 演示账号（公开密码）：系统管理员 / 租户管理员 / 普通用户，一键填入免手动输入 */
+  const demoAccounts = [
+    { role: "系统管理员", username: "admin", password: "Admin@123456" },
+    { role: "租户管理员", username: "demo_admin", password: "Demo@123456" },
+    { role: "普通用户", username: "demo_user", password: "Demo@123456" },
+  ];
+
+  /** 一键填入演示账号，免手动输入 */
+  const fillTestAccount = (uname: string, pwd: string) => {
+    setUsername(uname);
+    setPassword(pwd);
     setMsg(null);
   };
 
@@ -148,12 +155,24 @@ export default function Login() {
           </label>
         </div>
         <div className="test-account-tip">
-          <span>
-            测试账号：<code>admin</code> / <code>Admin@123456</code>
-          </span>
-          <button type="button" className="btn-xs" onClick={fillTestAccount}>
-            一键填入
-          </button>
+          <div className="test-account-title">
+            演示账号（点击「填入」自动填充）
+          </div>
+          {demoAccounts.map((a) => (
+            <div key={a.username} className="test-account-row">
+              <span className="test-account-role">{a.role}</span>
+              <code>{a.username}</code>
+              <span className="test-account-sep">/</span>
+              <code>{a.password}</code>
+              <button
+                type="button"
+                className="btn-xs"
+                onClick={() => fillTestAccount(a.username, a.password)}
+              >
+                填入
+              </button>
+            </div>
+          ))}
         </div>
         {loginStats && (
           <div className="login-stats-tip">

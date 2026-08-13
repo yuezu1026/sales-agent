@@ -30,13 +30,13 @@
 
 ### API 验证（全部通过）
 
-| # | 场景 | 结果 |
-| :--- | :--- | :--- |
-| 1 | admin 调 `GET /users/all` → 仅 tadmin_m87（普通管理员）+ op_m87（普通用户），无 admin | ✅ |
-| 2 | admin 调 `GET /users`（系统用户管理）→ 仍仅 admin 系统管理员 | ✅ |
-| 3 | op_m87 调 `GET /users/all` → 403 | ✅ |
-| 4 | tadmin_m87 调 `GET /users` → 仅 op_m87（排除自己） | ✅ |
-| 5 | tadmin_m87 调 `GET /users/all` → 403 | ✅ |
+| #   | 场景                                                                                  | 结果 |
+| :-- | :------------------------------------------------------------------------------------ | :--- |
+| 1   | admin 调 `GET /users/all` → 仅 tadmin_m87（普通管理员）+ op_m87（普通用户），无 admin | ✅   |
+| 2   | admin 调 `GET /users`（系统用户管理）→ 仍仅 admin 系统管理员                          | ✅   |
+| 3   | op_m87 调 `GET /users/all` → 403                                                      | ✅   |
+| 4   | tadmin_m87 调 `GET /users` → 仅 op_m87（排除自己）                                    | ✅   |
+| 5   | tadmin_m87 调 `GET /users/all` → 403                                                  | ✅   |
 
 ### 浏览器 E2E（admin 登录）
 

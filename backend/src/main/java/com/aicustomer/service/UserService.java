@@ -37,6 +37,18 @@ public class UserService {
     /** 演示默认账号（公开密码）：禁止任何方式修改密码，含本人 */
     public static final String DEFAULT_ADMIN_USERNAME = "admin";
 
+    /** 演示账号集合（公开密码，禁止重置/修改密码，防演示账号被破坏）：系统管理员 + 演示租户管理员 + 演示租户普通用户 */
+    public static final Set<String> DEMO_ACCOUNTS = Set.of(
+            "admin",
+            "demo_admin",
+            "demo_user"
+    );
+
+    /** 是否为演示账号（公开密码，禁止重置/修改密码） */
+    public static boolean isDemoAccount(String username) {
+        return username != null && DEMO_ACCOUNTS.contains(username);
+    }
+
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
     private final SystemConfigRepository systemConfigRepository;
@@ -102,8 +114,8 @@ public class UserService {
         return user;
     }
 
-    /** 新租户初始化：system_config 默认项 + 默认数据源 + 默认 Prompt 模板 */
-    private void initTenantDefaults(Long tenantId) {
+    /** 新租户初始化：system_config 默认项 + 默认数据源 + 默认 Prompt 模板（幂等，供注册与演示租户复用） */
+    public void initTenantDefaults(Long tenantId) {
         for (var def : TenantDefaults.DEFAULT_CONFIGS) {
             if (systemConfigRepository.findByTenantIdAndConfigKey(tenantId, def.get("key")).isEmpty()) {
                 SystemConfig c = new SystemConfig();
@@ -292,7 +304,7 @@ public class UserService {
 
     /**
      * 管理员重置密码：
-     * - 演示默认账号 admin 禁止重置（含本人操作）→ 400
+     * - 演示账号（admin/demo_admin/demo_user）禁止重置（含本人操作）→ 400
      * - 任何人不能重置自己的密码（自己的密码通过个人设置修改）→ 400
      * - 系统管理员：只能重置其他系统管理员（平台账号）；租户用户由租户管理员管理 → 403
      * - 普通管理员：可重置本租户任意账号（普通用户/普通管理员），租户隔离由 findByIdWithinScope 保证
@@ -303,8 +315,8 @@ public class UserService {
         }
         User operator = findByUsername(operatorName);
         User target = findByIdWithinScope(id, operator);
-        if (DEFAULT_ADMIN_USERNAME.equals(target.getUsername())) {
-            throw BizException.badRequest("演示默认账号 admin 禁止修改密码");
+        if (isDemoAccount(target.getUsername())) {
+            throw BizException.badRequest("演示账号禁止修改密码");
         }
         if (target.getUsername().equals(operatorName)) {
             throw BizException.badRequest("不能重置当前登录账号密码，请通过个人设置修改");
@@ -431,12 +443,12 @@ public class UserService {
 
     /**
      * 修改密码：校验旧密码 → 更新为 BCrypt 新哈希
-     * 演示默认账号 admin 禁止修改（公开密码）
+     * 演示账号禁止修改（公开密码）
      */
     public void changePassword(String username, String oldPassword, String newPassword) {
         User user = findByUsername(username);
-        if (DEFAULT_ADMIN_USERNAME.equals(user.getUsername())) {
-            throw BizException.badRequest("演示默认账号 admin 禁止修改密码");
+        if (isDemoAccount(user.getUsername())) {
+            throw BizException.badRequest("演示账号禁止修改密码");
         }
         if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
             // 原密码错误是业务校验失败，用 400（401 会被前端当作登录过期而登出）

@@ -174,19 +174,34 @@ body {
   gap: 12px;
 }
 
-/* M7.8: 登录页默认测试账号提示条（一键填入） */
+/* M7.8/M8.8: 登录页演示账号提示条（三角色一键填入） */
 .test-account-tip {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   border: 1px dashed #d9d9d9;
   background: #fafafa;
   border-radius: 6px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   margin-bottom: 16px;
   font-size: 13px;
   color: #666;
+}
+
+.test-account-title {
+  font-size: 12px;
+  color: #999;
+}
+
+.test-account-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.test-account-role {
+  min-width: 68px;
+  color: #555;
 }
 
 .test-account-tip code {
@@ -196,6 +211,14 @@ body {
   padding: 1px 6px;
   font-family: inherit;
   color: #333;
+}
+
+.test-account-sep {
+  color: #bbb;
+}
+
+.test-account-row .btn-xs {
+  margin-left: auto;
 }
 
 /* M7.9: 登录页系统登录统计提示条 */
