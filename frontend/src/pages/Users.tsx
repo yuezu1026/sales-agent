@@ -22,16 +22,13 @@ function roleLabel(u: UserItem): string {
   return u.tenantId == null || u.tenantId === 0 ? "系统管理员" : "普通管理员";
 }
 
-/** 目标用户是否为系统管理员（平台账号，不可被禁用/编辑） */
-function isTargetSystemAdmin(u: UserItem): boolean {
-  return u.role === "admin" && (u.tenantId == null || u.tenantId === 0);
-}
-
-/** 用户管理（管理员）：系统管理员看所有租户用户；普通管理员看本租户 */
+/** 用户管理（管理员）：系统管理员只看平台账号；普通管理员看本租户 */
 export default function Users() {
   const navigate = useNavigate();
   const platform = isSystemAdmin();
   const [users, setUsers] = useState<UserItem[]>([]);
+  /** 当前登录用户名（/auth/me）：平台视角用于隐藏“重置自己密码”入口 */
+  const [me, setMe] = useState<string>("");
   const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(
     null,
   );
@@ -59,6 +56,12 @@ export default function Users() {
       return;
     }
     load();
+    // 当前登录用户名：平台视角判断“是否本人”以隐藏重置密码入口
+    api<{ username: string }>("/auth/me")
+      .then((m) => setMe(m.username))
+      .catch(() => {
+        /* 失败不阻塞页面（后端仍有权限校验兑底） */
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -196,7 +199,6 @@ export default function Users() {
                 <tr>
                   <th>用户名</th>
                   <th>显示名称</th>
-                  {platform && <th>所属租户</th>}
                   <th>角色</th>
                   <th>状态</th>
                   <th>创建时间</th>
@@ -209,13 +211,6 @@ export default function Users() {
                   <tr key={u.id}>
                     <td>{u.username}</td>
                     <td>{u.displayName || "-"}</td>
-                    {platform && (
-                      <td>
-                        {u.tenantId == null || u.tenantId === 0
-                          ? "平台"
-                          : u.tenantName || `租户#${u.tenantId}`}
-                      </td>
-                    )}
                     <td>{roleLabel(u)}</td>
                     <td>
                       {u.status === "active" ? (
@@ -235,23 +230,35 @@ export default function Users() {
                         : "-"}
                     </td>
                     <td>
-                      {/* 系统管理员账号不可操作；租户账号（普通管理员/普通用户）可重置密码/启停 */}
-                      {!isTargetSystemAdmin(u) && (
-                        <>
-                          <button
-                            className="btn btn-sm"
-                            onClick={() => resetPassword(u)}
-                          >
-                            重置密码
-                          </button>{" "}
-                          <button
-                            className="btn btn-sm"
-                            onClick={() => toggleStatus(u)}
-                          >
-                            {u.status === "active" ? "禁用" : "启用"}
-                          </button>
-                        </>
-                      )}
+                      {/* 平台视角：列表只有系统管理员 —— 演示默认账号 admin（含本人）及自己无操作，
+                          其他系统管理员仅可重置密码（系统管理员账号不可禁用）
+                          租户视角：本租户普通管理员/普通用户可重置密码/启停（自己除外） */}
+                      {platform
+                        ? u.username !== "admin" &&
+                          u.username !== me && (
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => resetPassword(u)}
+                            >
+                              重置密码
+                            </button>
+                          )
+                        : u.username !== me && (
+                            <>
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => resetPassword(u)}
+                              >
+                                重置密码
+                              </button>{" "}
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => toggleStatus(u)}
+                              >
+                                {u.status === "active" ? "禁用" : "启用"}
+                              </button>
+                            </>
+                          )}
                     </td>
                   </tr>
                 ))}

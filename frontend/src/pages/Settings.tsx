@@ -321,31 +321,47 @@ export default function Settings() {
 
         <div className="card" style={{ marginTop: 20 }}>
           <h3>修改密码</h3>
-          <div className="form-item">
-            <label>原密码</label>
-            <input
-              type="password"
-              value={pwd.oldPassword}
-              onChange={(e) => setPwd({ ...pwd, oldPassword: e.target.value })}
-            />
-          </div>
-          <div className="form-item">
-            <label>新密码</label>
-            <input
-              type="password"
-              value={pwd.newPassword}
-              onChange={(e) => setPwd({ ...pwd, newPassword: e.target.value })}
-            />
-          </div>
-          <button className="btn" disabled={pwdSaving} onClick={changePassword}>
-            {pwdSaving ? "提交中..." : "修改密码"}
-          </button>
-          {pwdMsg && (
-            <div
-              className={`msg ${pwdMsg.includes("成功") ? "success" : "error"}`}
-            >
-              {pwdMsg}
-            </div>
+          {profile.username === "admin" ? (
+            <p style={{ color: "#888", margin: 0 }}>
+              演示默认账号 admin 为公开账号，暂不支持修改密码。
+            </p>
+          ) : (
+            <>
+              <div className="form-item">
+                <label>原密码</label>
+                <input
+                  type="password"
+                  value={pwd.oldPassword}
+                  onChange={(e) =>
+                    setPwd({ ...pwd, oldPassword: e.target.value })
+                  }
+                />
+              </div>
+              <div className="form-item">
+                <label>新密码</label>
+                <input
+                  type="password"
+                  value={pwd.newPassword}
+                  onChange={(e) =>
+                    setPwd({ ...pwd, newPassword: e.target.value })
+                  }
+                />
+              </div>
+              <button
+                className="btn"
+                disabled={pwdSaving}
+                onClick={changePassword}
+              >
+                {pwdSaving ? "提交中..." : "修改密码"}
+              </button>
+              {pwdMsg && (
+                <div
+                  className={`msg ${pwdMsg.includes("成功") ? "success" : "error"}`}
+                >
+                  {pwdMsg}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

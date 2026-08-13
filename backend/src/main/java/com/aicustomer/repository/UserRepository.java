@@ -13,6 +13,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     List<User> findByTenantId(Long tenantId);
 
+    /** 平台系统管理员账号（role=admin 且无租户归属）：系统管理员用户列表只显示系统管理员 */
+    List<User> findByRoleAndTenantIdIsNull(String role);
+
     Optional<User> findByIdAndTenantId(Long id, Long tenantId);
 
     /** 各租户用户数（平台账号 tenant_id 为 NULL 不参与）：返回 [tenantId, count] 行 */

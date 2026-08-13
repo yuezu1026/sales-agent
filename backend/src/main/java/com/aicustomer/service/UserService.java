@@ -34,6 +34,9 @@ import java.util.stream.Collectors;
 @Service
 public class UserService {
 
+    /** 演示默认账号（公开密码）：禁止任何方式修改密码，含本人 */
+    public static final String DEFAULT_ADMIN_USERNAME = "admin";
+
     private final UserRepository userRepository;
     private final TenantRepository tenantRepository;
     private final SystemConfigRepository systemConfigRepository;
@@ -188,13 +191,13 @@ public class UserService {
 
     /**
      * 用户列表：
-     * - 系统管理员（无租户上下文）→ 所有租户的注册用户（含租户名）
+     * - 系统管理员（无租户上下文）→ 仅平台系统管理员账号（role=admin 且无租户）—— 普通用户/普通管理员由各租户管理员管理
      * - 普通管理员 → 本租户用户
      */
     public List<UserVO> listAll() {
         Long tenantId = TenantContext.get();
         List<User> users = (tenantId == null)
-                ? userRepository.findAll()
+                ? userRepository.findByRoleAndTenantIdIsNull(User.ROLE_ADMIN)
                 : userRepository.findByTenantId(tenantId);
         if (users.isEmpty()) {
             return List.of();
@@ -267,8 +270,10 @@ public class UserService {
 
     /**
      * 管理员重置密码：
-     * - 系统管理员可重置任意用户
-     * - 普通管理员可重置本租户任意账号（普通用户/普通管理员），租户隔离由 findByIdWithinScope 保证
+     * - 演示默认账号 admin 禁止重置（含本人操作）→ 400
+     * - 任何人不能重置自己的密码（自己的密码通过个人设置修改）→ 400
+     * - 系统管理员：只能重置其他系统管理员（平台账号）；租户用户由租户管理员管理 → 403
+     * - 普通管理员：可重置本租户任意账号（普通用户/普通管理员），租户隔离由 findByIdWithinScope 保证
      */
     public void resetPassword(Long id, String newPassword, String operatorName) {
         if (newPassword == null || newPassword.length() < 8) {
@@ -276,7 +281,17 @@ public class UserService {
         }
         User operator = findByUsername(operatorName);
         User target = findByIdWithinScope(id, operator);
-        if (target.isSystemAdmin() && !operator.isSystemAdmin()) {
+        if (DEFAULT_ADMIN_USERNAME.equals(target.getUsername())) {
+            throw BizException.badRequest("演示默认账号 admin 禁止修改密码");
+        }
+        if (target.getUsername().equals(operatorName)) {
+            throw BizException.badRequest("不能重置当前登录账号密码，请通过个人设置修改");
+        }
+        if (operator.isSystemAdmin()) {
+            if (!target.isSystemAdmin()) {
+                throw BizException.forbidden("无权限，租户用户由租户管理员管理");
+            }
+        } else if (target.isSystemAdmin()) {
             throw BizException.forbidden("无权限，不能重置系统管理员密码");
         }
         target.setPasswordHash(passwordEncoder.encode(newPassword));
@@ -285,8 +300,9 @@ public class UserService {
 
     /**
      * 管理员启用/禁用账号：
-     * - 系统管理员可禁用任意租户用户（含租户管理员），但不能禁用其他系统管理员
-     * - 普通管理员可启停本租户任意账号（普通用户/普通管理员），但不能禁用自己；租户隔离由 findByIdWithinScope 保证
+     * - 系统管理员：仅能管理平台账号；但系统管理员账号不可禁用（含自己）→ 400；
+     *   租户用户由租户管理员管理，系统管理员无权操作 → 403
+     * - 普通管理员：可启停本租户任意账号（普通用户/普通管理员），但不能禁用自己；租户隔离由 findByIdWithinScope 保证
      */
     public void setStatus(Long id, String status, String operatorName) {
         if (!"active".equals(status) && !"disabled".equals(status)) {
@@ -294,6 +310,13 @@ public class UserService {
         }
         User operator = findByUsername(operatorName);
         User target = findByIdWithinScope(id, operator);
+        if (operator.isSystemAdmin()) {
+            if (!target.isSystemAdmin()) {
+                throw BizException.forbidden("无权限，租户用户由租户管理员管理");
+            }
+            // 平台账号只有系统管理员，系统管理员账号一律不可禁用
+            throw BizException.badRequest("系统管理员账号不可禁用");
+        }
         if (target.isSystemAdmin()) {
             throw BizException.badRequest("系统管理员账号不可禁用");
         }
@@ -386,9 +409,13 @@ public class UserService {
 
     /**
      * 修改密码：校验旧密码 → 更新为 BCrypt 新哈希
+     * 演示默认账号 admin 禁止修改（公开密码）
      */
     public void changePassword(String username, String oldPassword, String newPassword) {
         User user = findByUsername(username);
+        if (DEFAULT_ADMIN_USERNAME.equals(user.getUsername())) {
+            throw BizException.badRequest("演示默认账号 admin 禁止修改密码");
+        }
         if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
             // 原密码错误是业务校验失败，用 400（401 会被前端当作登录过期而登出）
             throw BizException.badRequest("原密码不正确");
