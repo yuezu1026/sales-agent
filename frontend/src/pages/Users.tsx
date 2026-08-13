@@ -22,10 +22,17 @@ function roleLabel(u: UserItem): string {
   return u.tenantId == null || u.tenantId === 0 ? "系统管理员" : "普通管理员";
 }
 
-/** 用户管理（管理员）：系统管理员可切换「系统用户管理/所有用户管理」；普通管理员看本租户 */
+/**
+ * 用户管理（M8.6 三视角）：
+ * - 系统管理员（平台）：视图下拉（系统用户管理/所有用户管理）+ 创建系统管理员
+ * - 普通管理员（租户）：本租户用户列表（不含自己）+ 创建本租户账号 + 重置密码/禁用
+ * - 普通用户（operator）：只显示自己一行，「修改信息」跳转个人设置
+ */
 export default function Users() {
   const navigate = useNavigate();
   const platform = isSystemAdmin();
+  /** 租户管理员 = role=admin 且属于某租户（非平台） */
+  const isAdmin = getRole() === "admin";
   const [users, setUsers] = useState<UserItem[]>([]);
   /** 所有用户（只读视图，仅系统管理员加载 /users/all） */
   const [allUsers, setAllUsers] = useState<UserItem[]>([]);
@@ -65,17 +72,15 @@ export default function Users() {
   };
 
   useEffect(() => {
-    if (getRole() !== "admin") {
-      navigate("/");
-      return;
-    }
     load();
     // 当前登录用户名：平台视角判断“是否本人”以隐藏重置密码入口
-    api<{ username: string }>("/auth/me")
-      .then((m) => setMe(m.username))
-      .catch(() => {
-        /* 失败不阻塞页面（后端仍有权限校验兑底） */
-      });
+    if (platform) {
+      api<{ username: string }>("/auth/me")
+        .then((m) => setMe(m.username))
+        .catch(() => {
+          /* 失败不阻塞页面（后端仍有权限校验兑底） */
+        });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -199,62 +204,72 @@ export default function Users() {
           </div>
         )}
 
-        {/* ===== 系统用户管理 视图（平台） / 租户管理员默认视图 ===== */}
+        {/* ===== 系统用户管理 视图（平台） / 租户管理员视图 / 普通用户视图 ===== */}
         {(!platform || view === "sys") && (
           <>
-            <div className="card">
-              <h3>
-                {platform
-                  ? "创建账号（超级管理员只能创建超级管理员）"
-                  : "创建账号（归属当前租户：普通管理员或普通用户）"}
-              </h3>
-              <div className="form-row">
-                <input
-                  className="input"
-                  placeholder="用户名（3-32 字符）"
-                  value={form.username}
-                  onChange={(e) =>
-                    setForm({ ...form, username: e.target.value })
-                  }
-                />
-                <input
-                  className="input"
-                  type="password"
-                  placeholder="初始密码（至少 8 位）"
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                />
-                <input
-                  className="input"
-                  placeholder="显示名称（可选）"
-                  value={form.displayName}
-                  onChange={(e) =>
-                    setForm({ ...form, displayName: e.target.value })
-                  }
-                />
-                <select
-                  className="input"
-                  value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value })}
-                >
-                  {platform ? (
-                    <option value="admin">超级管理员</option>
-                  ) : (
-                    <>
-                      <option value="operator">普通用户</option>
-                      <option value="admin">普通管理员</option>
-                    </>
-                  )}
-                </select>
-                <button className="btn" disabled={creating} onClick={create}>
-                  {creating ? "创建中..." : "创建账号"}
-                </button>
+            {/* 创建账号：仅管理员（系统管理员/租户管理员）；普通用户无创建权限 */}
+            {isAdmin && (
+              <div className="card">
+                <h3>
+                  {platform
+                    ? "创建账号（超级管理员只能创建超级管理员）"
+                    : "创建账号（归属当前租户：普通管理员或普通用户）"}
+                </h3>
+                <div className="form-row">
+                  <input
+                    className="input"
+                    placeholder="用户名（3-32 字符）"
+                    value={form.username}
+                    onChange={(e) =>
+                      setForm({ ...form, username: e.target.value })
+                    }
+                  />
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="初始密码（至少 8 位）"
+                    value={form.password}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
+                  />
+                  <input
+                    className="input"
+                    placeholder="显示名称（可选）"
+                    value={form.displayName}
+                    onChange={(e) =>
+                      setForm({ ...form, displayName: e.target.value })
+                    }
+                  />
+                  <select
+                    className="input"
+                    value={form.role}
+                    onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  >
+                    {platform ? (
+                      <option value="admin">超级管理员</option>
+                    ) : (
+                      <>
+                        <option value="operator">普通用户</option>
+                        <option value="admin">普通管理员</option>
+                      </>
+                    )}
+                  </select>
+                  <button className="btn" disabled={creating} onClick={create}>
+                    {creating ? "创建中..." : "创建账号"}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {msg && <div className={`msg ${msg.type}`}>{msg.text}</div>}
+
+            {/* 普通用户提示：只能看到自己，修改信息跳个人设置 */}
+            {!isAdmin && (
+              <p style={{ color: "#888", fontSize: 13, margin: "0 0 8px" }}>
+                您只能查看自己的账号信息；修改资料或密码请点击「修改信息」。
+              </p>
+            )}
 
             <div className="card">
               <div className="table-wrap">
@@ -294,35 +309,43 @@ export default function Users() {
                             : "-"}
                         </td>
                         <td>
-                          {/* 平台视角：列表只有系统管理员 —— 演示默认账号 admin（含本人）及自己无操作，
-                              其他系统管理员仅可重置密码（系统管理员账号不可禁用）
-                              租户视角：本租户普通管理员/普通用户可重置密码/启停（自己除外） */}
-                          {platform
-                            ? u.username !== "admin" &&
-                              u.username !== me && (
-                                <button
-                                  className="btn btn-sm"
-                                  onClick={() => resetPassword(u)}
-                                >
-                                  重置密码
-                                </button>
-                              )
-                            : u.username !== me && (
-                                <>
-                                  <button
-                                    className="btn btn-sm"
-                                    onClick={() => resetPassword(u)}
-                                  >
-                                    重置密码
-                                  </button>{" "}
-                                  <button
-                                    className="btn btn-sm"
-                                    onClick={() => toggleStatus(u)}
-                                  >
-                                    {u.status === "active" ? "禁用" : "启用"}
-                                  </button>
-                                </>
-                              )}
+                          {/* 三视角操作列（M8.6）：
+                              平台：列表只有系统管理员 —— admin 演示账号（含本人）及自己无操作，其他系统管理员仅可重置密码
+                              租户管理员：本租户列表不含自己（后端已过滤）→ 可重置密码/启停本租户任意账号
+                              普通用户：列表只有自己一行 → 「修改信息」跳转个人设置（含改密） */}
+                          {platform ? (
+                            u.username !== "admin" &&
+                            u.username !== me && (
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => resetPassword(u)}
+                              >
+                                重置密码
+                              </button>
+                            )
+                          ) : isAdmin ? (
+                            <>
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => resetPassword(u)}
+                              >
+                                重置密码
+                              </button>{" "}
+                              <button
+                                className="btn btn-sm"
+                                onClick={() => toggleStatus(u)}
+                              >
+                                {u.status === "active" ? "禁用" : "启用"}
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => navigate("/settings")}
+                            >
+                              修改信息
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

@@ -25,11 +25,12 @@ public class UserController {
         this.userService = userService;
     }
 
-    /** 用户列表（系统管理员看全部租户用户；普通管理员看本租户） */
+    /** 用户列表（M8.6）：系统管理员看平台管理员；租户管理员看本租户（排除自己）；普通用户只看自己 */
     @GetMapping
     public ApiResponse<List<UserService.UserVO>> list(HttpServletRequest request) {
-        userService.requireAdmin(currentUsername(request));
-        return ApiResponse.ok(userService.listAll());
+        String operator = currentUsername(request);
+        userService.findByUsername(operator); // 仅登录校验，任意已登录角色可查（内容按角色分派）
+        return ApiResponse.ok(userService.listAll(operator));
     }
 
     /** 所有用户列表（只读，仅系统管理员）：所有租户所有用户，含租户名，供「所有用户管理」视图 */

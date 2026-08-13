@@ -22,7 +22,7 @@ const MAIL_ITEMS_ADMIN = [{ to: "/unsubs", key: "unsubs", label: "退订管理" 
  * 顶部导航
  * - 系统管理员（平台级）：工作台（仅登录统计/地理分布）+ 用户管理 + 租户管理 + 帮助
  * - 普通管理员（租户级）：业务菜单 + 用户管理 + 系统设置
- * - 普通用户：业务菜单 + 个人设置
+ * - 普通用户：业务菜单 + 用户管理（M8.6，只见自己）+ 个人设置
  */
 export function Nav({ current, onLogout }: NavProps) {
   const isAdmin = getRole() === "admin";
@@ -232,23 +232,21 @@ export function Nav({ current, onLogout }: NavProps) {
                     ))}
                 </div>
               )}
-              {isAdmin && (
-                <>
-                  <NavLink
-                    to="/users"
-                    className={current === "users" ? "active" : ""}
-                  >
-                    用户管理
-                  </NavLink>
-                  <NavLink
-                    to="/settings"
-                    className={current === "settings" ? "active" : ""}
-                  >
-                    系统设置
-                  </NavLink>
-                </>
-              )}
-              {!isAdmin && (
+              {/* 用户管理：管理员与普通用户均可见（M8.6，普通用户只见自己）；系统设置仅管理员 */}
+              <NavLink
+                to="/users"
+                className={current === "users" ? "active" : ""}
+              >
+                用户管理
+              </NavLink>
+              {isAdmin ? (
+                <NavLink
+                  to="/settings"
+                  className={current === "settings" ? "active" : ""}
+                >
+                  系统设置
+                </NavLink>
+              ) : (
                 <NavLink
                   to="/settings"
                   className={current === "settings" ? "active" : ""}

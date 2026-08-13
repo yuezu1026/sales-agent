@@ -34,7 +34,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/track/**"
                 );
 
-        // 仅超级管理员：用户管理 + 系统设置
+        // 管理员拦截：用户管理 + 系统设置（M8.6：GET /users 列表对任意登录用户放行，见 AdminInterceptor）
         registry.addInterceptor(adminInterceptor)
                 .addPathPatterns("/api/users/**", "/api/config/**");
     }

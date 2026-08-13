@@ -190,15 +190,23 @@ public class UserService {
     }
 
     /**
-     * 用户列表：
-     * - 系统管理员（无租户上下文）→ 仅平台系统管理员账号（role=admin 且无租户）—— 普通用户/普通管理员由各租户管理员管理
-     * - 普通管理员 → 本租户用户
+     * 用户列表（按操作者角色分派，M8.6）：
+     * - 系统管理员（平台级）→ 仅平台系统管理员账号（role=admin 且无租户）
+     * - 普通管理员（租户级）→ 本租户用户，排除自己（普通操作员 + 其他管理员）
+     * - 普通用户（operator）→ 仅自己
      */
-    public List<UserVO> listAll() {
-        Long tenantId = TenantContext.get();
-        List<User> users = (tenantId == null)
-                ? userRepository.findByRoleAndTenantIdIsNull(User.ROLE_ADMIN)
-                : userRepository.findByTenantId(tenantId);
+    public List<UserVO> listAll(String operatorName) {
+        User operator = findByUsername(operatorName);
+        List<User> users;
+        if (operator.isSystemAdmin()) {
+            users = userRepository.findByRoleAndTenantIdIsNull(User.ROLE_ADMIN);
+        } else if (operator.isTenantAdmin()) {
+            users = userRepository.findByTenantId(operator.getTenantId()).stream()
+                    .filter(u -> !u.getUsername().equals(operatorName))
+                    .toList();
+        } else {
+            users = List.of(operator);
+        }
         return toUserVOs(users);
     }
 
