@@ -33,10 +33,16 @@
 
 - [x] 后端编译：`mvn compile -o` BUILD SUCCESS
 - [x] 前端编译：`tsc --noEmit` exit 0；`vite build` exit 0（Tenants chunk 1.7KB 已生成）
-- [ ] E2E：admin 登录 → 导航有「租户管理」→ 列表展示各租户（含用户数）；普通管理员/普通用户无此菜单且手动访问 `/tenants` 被拦截
-- [ ] 界面检查：表格无重叠/溢出（DOM 测量）
+- [x] 部署：服务器 `43.153.229.106`，scp 源码 → build backend/frontend → up -d --no-deps（2026-08-13）
+- [x] **线上 NPE 修复**：首版 `TenantController` 用 `Map.of()` 存 ownerNames，`get(null)`（ownerUserId 为 NULL 的历史租户「默认租户」）抛 NPE → 500。改为 `HashMap` 后正常
+- [x] E2E（线上 sales-agent.top 实测）：
+  - admin 登录 → 导航有「租户管理」菜单，列表展示「默认租户」（ID/名称/管理员/套餐/状态/用户数/创建时间/到期时间）
+  - 权限矩阵：无 token → 401；普通用户（op_e2e）token → 403「无权限，仅系统管理员可操作」；admin → 200
+  - 普通用户导航无「租户管理」菜单；手动访问 `/app/tenants` → 重定向到工作台
+  - 桌面（887px）与手机（375px）DOM 测量：表格在 `.table-wrap` 内横向滚动，页面无横向溢出、无元素重叠
+- [x] 备注：E2E 用 op_e2e 测试时将其密码重置为 `op_e2e@12345`（原密码未知，属测试账号）
 
 ## 四、交付
 
-- Git 提交：`4f1bc9c`（M8.3 新增租户管理），已推送 origin/main
-- 部署：待下次部署时随前端一起（scp → build → up -d --no-deps frontend），后端需重启容器生效
+- Git 提交：`4f1bc9c`（M8.3 新增租户管理）+ `a64a8e0`（任务文档交付记录），已推送 origin/main
+- 部署：已上线 sales-agent.top（前后端均已重启生效）

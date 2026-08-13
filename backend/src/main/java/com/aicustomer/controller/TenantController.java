@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,11 +51,14 @@ public class TenantController {
         Map<Long, Long> counts = userRepository.countGroupByTenantId().stream()
                 .collect(Collectors.toMap(r -> (Long) r[0], r -> (Long) r[1]));
         // 租户管理员用户名：批量查，容忍 owner 为 null / 用户已删除
+        // 注意：ownerNames 必须用 HashMap（不可用 Map.of），否则 get(null) 会抛 NPE
         Set<Long> ownerIds = tenants.stream().map(Tenant::getOwnerUserId)
                 .filter(Objects::nonNull).collect(Collectors.toSet());
-        Map<Long, String> ownerNames = ownerIds.isEmpty() ? Map.of()
-                : userRepository.findAllById(ownerIds).stream()
-                .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+        Map<Long, String> ownerNames = new HashMap<>();
+        if (!ownerIds.isEmpty()) {
+            ownerNames.putAll(userRepository.findAllById(ownerIds).stream()
+                    .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a)));
+        }
         return ApiResponse.ok(tenants.stream()
                 .map(t -> new TenantVO(t.getId(), t.getName(), t.getOwnerUserId(),
                         ownerNames.get(t.getOwnerUserId()), t.getPlan(), t.getStatus(),
