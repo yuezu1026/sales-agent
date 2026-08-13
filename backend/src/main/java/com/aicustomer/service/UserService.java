@@ -213,9 +213,12 @@ public class UserService {
     /**
      * 所有用户列表（只读，仅系统管理员）：所有租户的所有用户，含租户名。
      * 供「用户管理 → 所有用户管理」只读视图使用，无任何写操作。
+     * M8.7：排除系统管理员（平台级账号，role=admin 且无租户），只显示普通管理员（租户管理员）+ 普通操作员。
      */
     public List<UserVO> listAllUsers() {
-        return toUserVOs(userRepository.findAll());
+        return toUserVOs(userRepository.findAll().stream()
+                .filter(u -> !u.isSystemAdmin())
+                .toList());
     }
 
     /** 用户列表 → UserVO（批量查租户名；平台级账号 tenant_id 为 NULL 容忍） */
